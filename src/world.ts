@@ -26,6 +26,10 @@ const organic = (x: number, z: number, salt = 0) => {
   const n = Math.sin(x * 127.1 + z * 311.7 + salt * 74.31) * 43758.5453123;
   return n - Math.floor(n);
 };
+// The house stands in an open field. An irregular meadow edge leaves the
+// established forest, rear garden and distant routes in their original places.
+const inHouseField = (x: number, z: number) => z > -23.5 && x > -23 &&
+  Math.hypot((x - 1) / 21, (z - 4) / 27) < 1 + Math.sin(z * .22) * .055 + Math.cos(x * .27 - z * .11) * .035;
 // Independent decoration randomness never changes the established obstacle layout.
 function decorationRandom(seed: number) {
   return () => { seed = Math.imul(seed ^ seed >>> 15, seed | 1); seed ^= seed + Math.imul(seed ^ seed >>> 7, seed | 61); return ((seed ^ seed >>> 14) >>> 0) / 4294967296; };
@@ -142,6 +146,7 @@ function textures() {
 
 class Builder {
   group = new THREE.Group(); colliders: Collider[] = []; animated: Animated[] = []; lights: THREE.Light[] = [];
+  private clearedFieldTrees = new Set<Collider>();
   batches = new Map<string, Batch>();
   rnd: () => number;
   w: number; d: number; x: number; z: number;
@@ -594,20 +599,23 @@ class Builder {
     if (Math.abs(x) < this.x && Math.abs(z) < this.z && this.nearRoute(x, z, 2)) return;
     const r = h * .035 * scale, bend = this.rand(-.7, .7);
     const natural = this.room.id === 'house_grounds';
+    // Generate every original random sample even for trees cleared from the
+    // field; later trees, scenery and saved walking routes must not shift.
+    const standing = !natural || !inHouseField(x, z);
     const shape = organic(x, z, 17), leanAngle = organic(x, z, 9) * Math.PI * 2;
     const lean = h * (.018 + organic(x, z, 7) * .064), branchCount = 4 + Math.floor(organic(x, z, 23) * 3);
     const trunkAt = (t: number) => new THREE.Vector3(x + Math.cos(leanAngle) * lean * t * t + Math.sin(t * Math.PI) * bend * .44, h * t, z + Math.sin(leanAngle) * lean * t * t);
-    if (natural) {
+    if (natural && standing) {
       for (let section = 0; section < 4; section++) {
         const a = section * .235, b = (section + 1) * .235;
         this.beam(trunkAt(a), trunkAt(b + .015), r * (1 - a * .79), this.mat.bark, true);
       }
-    } else this.beam(new THREE.Vector3(x, -.1, z), new THREE.Vector3(x + bend, h * .8, z + bend * .4), r, this.mat.bark, true);
+    } else if (!natural) this.beam(new THREE.Vector3(x, -.1, z), new THREE.Vector3(x + bend, h * .8, z + bend * .4), r, this.mat.bark, true);
     for (let j = 0; j < 7; j++) {
       const a = j * 2.4 + this.rand(-.2, .2), y = h * this.rand(.5, .85), length = h * this.rand(.18, .33);
       let end = new THREE.Vector3(x + Math.cos(a) * length, y + length * .55, z + Math.sin(a) * length);
       let start = new THREE.Vector3(x + bend * .6, y, z);
-      const enabled = !natural || j < branchCount, angle = a + organic(x + j, z, 11) * 2.7;
+      const enabled = standing && (!natural || j < branchCount), angle = a + organic(x + j, z, 11) * 2.7;
       if (natural) {
         const low = .33 + organic(x + j, z, 16) * .43;
         start = trunkAt(low);
@@ -640,12 +648,17 @@ class Builder {
         } else this.batch(PLANE, foliage, [xx, yy, zz], [ss, ss, ss], [rx, ry, rz]);
       }
     }
-    for (let j = 0; j < 5; j++) {
+    for (let j = 0; standing && j < 5; j++) {
       const a = j * 1.256 + (natural ? organic(x + j, z, 32) * .86 : 0);
       const reach = r * (natural ? 1.55 + organic(x, z + j, 37) * 1.6 : 3.6);
       this.beam(new THREE.Vector3(x + Math.cos(a) * reach, natural ? -.025 : .05, z + Math.sin(a) * reach), new THREE.Vector3(x, r * (natural ? .72 : 1.5), z), r * (natural ? .24 : .3), this.mat.bark, true);
     }
-    if (!this.nearRoute(x, z, 1.1)) this.collision(x, z, r * 2, r * 2);
+    if (!this.nearRoute(x, z, 1.1)) {
+      this.collision(x, z, r * 2, r * 2);
+      // Keep the old footprints only while sampling decorative ground cover;
+      // they are removed before the completed world reaches the controller.
+      if (!standing) this.clearedFieldTrees.add(this.colliders[this.colliders.length - 1]);
+    }
   }
   forest(barrow = false) {
     this.ground(this.mat.moss, true);
@@ -847,7 +860,7 @@ class Builder {
       const x = this.rand(bounds.minX, bounds.maxX), z = this.rand(bounds.minZ, bounds.maxZ);
       if (clearRoute(x, z, 2.05)) continue;
       if (i % 3 === 0) this.rock(x, .11, z, this.rand(.3, 1.1), this.rand(.2, .6), this.rand(.3, 1), i % 2 ? this.mat.moss : this.mat.rock);
-      else this.fern(x, z, this.rand(.55, 1.15));
+      else this.fern(x, z, this.rand(.55, 1.15) * (inHouseField(x, z) ? .5 : 1));
     }
     if (!this.flags.barrow_path_open) {
       this.beam(new THREE.Vector3(-13.7, .56, 16.7), new THREE.Vector3(-7.1, .73, 18.4), .35, this.mat.bark);
@@ -891,6 +904,7 @@ class Builder {
     }
     this.group.userData.exteriorBounds = bounds;
     this.woodlandGroundCover(pathDistance, terrainHeight, bounds);
+    this.colliders = this.colliders.filter(collider => !this.clearedFieldTrees.has(collider));
   }
   woodlandGroundCover(pathDistance: (x: number, z: number) => number, terrainHeight: (x: number, z: number) => number, bounds: { minX: number; maxX: number; minZ: number; maxZ: number }) {
     const random = decorationRandom(140927), grassMaterials = ['#bec5a7', '#939f7c', '#c7cbaa'].map(tint => new THREE.MeshStandardMaterial({ color: tint, vertexColors: true, side: THREE.DoubleSide, roughness: 1 }));
@@ -921,11 +935,12 @@ class Builder {
       const edge = pathDistance(x, z);
       if (edge < 2.25 || sheltered(x, z) || nearTarget(x, z, 2.1) || nearShaft(x, z, 2.6) || Math.abs(x) < 10.9 && z > -23.8 && z < -3.8) continue;
       const y = terrainHeight(x, z), lush = .7 + random() * .85, angle = random() * Math.PI * 2;
-      if (i % 4 === 0) this.fern(x, z, lush, y + .025);
+      const meadow = inHouseField(x, z), plantScale = meadow ? .32 : 1;
+      if (i % 4 === 0) this.fern(x, z, lush * plantScale, y + .025);
       else {
         const material = i % 3 ? broadleaf : shadeleaf;
-        for (let face = 0; face < 3; face++) this.batch(PLANE, material, [x + Math.sin(face * 2.4) * .16, y + .28 + lush * .12, z + Math.cos(face * 2.4) * .16], [lush * 1.6, lush * .86, 1], [face === 2 ? -1.14 : -.26, angle + face * 1.17, .12], false);
-        if (edge > 3.6 && i % 9 === 0) {
+        for (let face = 0; face < 3; face++) this.batch(PLANE, material, [x + Math.sin(face * 2.4) * .16 * plantScale, y + (.28 + lush * .12) * plantScale, z + Math.cos(face * 2.4) * .16 * plantScale], [lush * 1.6 * plantScale, lush * .86 * plantScale, 1], [face === 2 ? -1.14 : -.26, angle + face * 1.17, .12], false);
+        if (!meadow && edge > 3.6 && i % 9 === 0) {
           const twig = new THREE.Vector3(x + Math.cos(angle) * .32, y + 1.16, z + Math.sin(angle) * .32);
           this.beam(new THREE.Vector3(x, y, z), twig, .025, this.mat.bark, true);
           for (let face = 0; face < 2; face++) this.batch(PLANE, material, [twig.x, twig.y + .12, twig.z], [lush * 1.6, lush, 1], [.25, angle + face * 1.2, -.2], false);

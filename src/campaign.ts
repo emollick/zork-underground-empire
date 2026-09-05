@@ -45,7 +45,7 @@ export const ITEMS: Record<string, ItemDef> = Object.fromEntries([
   item('emerald', 'Large emerald', 'A large emerald.', true),
   item('chalice', 'Silver chalice', 'A silver chalice, intricately engraved.', true),
   item('gold', 'Pot of gold', 'At the end of the rainbow is a pot of gold.', true),
-  item('ancient_map', 'Ancient map', 'The map shows a forest with three clearings. The largest clearing contains a house. Three paths leave the large clearing. One of these paths, leading southwest, is marked “To Stone Barrow”.'),
+  item('ancient_map', 'Ancient map', 'The map shows a forest with three clearings. The largest clearing contains a house. Three paths leave the large clearing. One of these paths, leading northwest, is marked “To Stone Barrow”.'),
 ].map(value => [value.id, value]));
 
 export const TREASURES = Object.values(ITEMS).filter(value => value.treasure).map(value => value.id);

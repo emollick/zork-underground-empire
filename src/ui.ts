@@ -1,4 +1,5 @@
 import type { ActionResult, GameState, ItemDef, RoomDef } from './types.ts';
+import { compassBearing, compassJournalText } from './compass.ts';
 import './item-selection.css';
 
 export const escapeHtml = (value: string) => value.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
@@ -205,7 +206,7 @@ export class GameUI {
     let body = '';
     if (tab === 'journal') {
       const hintLabel = hintLevel >= 3 ? 'Repeat the solution' : hintLevel === 2 ? 'Show the solution' : hintLevel === 1 ? 'A clearer hint' : 'A nudge, please';
-      body = `<div class="journal-content"><aside class="current-lead"><span class="eyebrow">YOUR OBSERVATIONS</span><h3>${escapeHtml(objective.title)}</h3><p>${escapeHtml(objective.text)}</p><button class="text-button hint-button" data-action="hint">${hintLabel} <span>↗</span></button>${hintText ? `<p class="hint-text">${escapeHtml(this.touchMode ? touchHint(hintText) : hintText)}</p>` : ''}<div class="journal-stats"><span>${state.visited.length} places discovered</span><span>${Math.floor(state.playTime / 60)} minutes in the empire</span></div></aside><div class="journal-entries">${[...state.journal].reverse().map(e => `<article><span>◇</span><div><h3>${escapeHtml(e.title)}</h3><p>${escapeHtml(e.text)}</p></div></article>`).join('') || '<p>Your observations will be recorded here as you explore.</p>'}</div></div>`;
+      body = `<div class="journal-content"><aside class="current-lead"><span class="eyebrow">YOUR OBSERVATIONS</span><h3>${escapeHtml(objective.title)}</h3><p>${escapeHtml(objective.text)}</p><button class="text-button hint-button" data-action="hint">${hintLabel} <span>↗</span></button>${hintText ? `<p class="hint-text">${escapeHtml(this.touchMode ? touchHint(hintText) : hintText)}</p>` : ''}<div class="journal-stats"><span>${state.visited.length} places discovered</span><span>${Math.floor(state.playTime / 60)} minutes in the empire</span></div></aside><div class="journal-entries">${[...state.journal].reverse().map(e => `<article><span>◇</span><div><h3>${escapeHtml(e.title)}</h3><p>${escapeHtml(compassJournalText(e))}</p></div></article>`).join('') || '<p>Your observations will be recorded here as you explore.</p>'}</div></div>`;
     } else if (tab === 'map') {
       const visited = Object.values(rooms).filter(r => state.visited.includes(r.id));
       const nextIds = new Set(visited.flatMap(r => r.exits.filter(e => !e.requires || state.flags[e.requires]).map(e => e.to)));
@@ -278,7 +279,7 @@ export class GameUI {
       this.text('look-hint', lookMode === 'free' ? 'Move the mouse to look · Keep it near an edge to turn further · Esc to pause' : 'Click to look around · Esc to pause');
     }
     document.querySelector('#look-hint')!.classList.toggle('hidden', this.touchMode || lookMode === 'touch' || lookMode === 'captured' || !active || fighting || lookMode === 'free' && performance.now() > this.lookHintUntil);
-    const degrees = ((-state.yaw * 180 / Math.PI) % 360 + 360) % 360;
+    const degrees = compassBearing(state.room, state.yaw);
     const marks = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
     const track = document.querySelector('#compass-track')!;
     track.innerHTML = marks.map((label, i) => { let offset = i * 45 - degrees; if (offset > 180) offset -= 360; if (offset < -180) offset += 360; return Math.abs(offset) <= 80 ? `<span style="left:calc(50% + ${offset * 2}px);opacity:${1 - Math.abs(offset) / 95}">${label}</span>` : ''; }).join('');

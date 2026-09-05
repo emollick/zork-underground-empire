@@ -91,8 +91,8 @@ function take(state: GameState, id: string): ActionResult {
   if (id === 'ancient_map') {
     state.flags.map_found = true;
     state.flags.barrow_path_open = true;
-    note(state, 'last_road', 'The Stone Barrow', 'The map reveals a hidden road southwest of the white house. Nineteen treasures returned; one last threshold remains.');
-    return ok('The parchment shows a hidden road southwest of the white house. At its end, a Stone Barrow. The twentieth treasure has given you your final destination.', 'The ancient map', 'reveal');
+    note(state, 'last_road', 'The Stone Barrow', 'The map reveals a hidden road northwest of the white house. Nineteen treasures returned; one last threshold remains.');
+    return ok('The parchment shows a hidden road northwest of the white house. At its end, a Stone Barrow. The twentieth treasure has given you your final destination.', 'The ancient map', 'reveal');
   }
   if (item.treasure) {
     note(state, `treasure_${id}`, item.name, item.description);
@@ -505,7 +505,7 @@ export function objective(state: GameState): { title: string; text: string } {
   if (ROOMS[state.room].dark && !hasLight(state)) return { title: 'Darkness', text: 'It is pitch black. You are likely to be eaten by a grue.' };
   if (state.completed) return { title: 'Master Adventurer', text: 'The nineteen treasures are home. You have entered the Stone Barrow.' };
   if (allTreasuresDeposited(state)) return state.flags.map_found
-    ? { title: 'To Stone Barrow', text: 'The map marks a path southwest of the white house.' }
+    ? { title: 'To Stone Barrow', text: 'The map marks a path northwest of the white house.' }
     : { title: 'The trophy case', text: 'Something has changed among the nineteen treasures.' };
   const r = state.room;
   if (r === 'behind_house') return { title: 'Behind the house', text: state.flags.window_open ? 'The small window is open.' : 'A small window is slightly ajar.' };
@@ -559,7 +559,7 @@ export function hints(state: GameState): string[] {
     ? ['The map has brought you to the door of a tomb.', 'The door is open. Whatever lies beyond it is hidden in darkness.', 'Approach the Stone Barrow threshold and press E to enter.']
     : ['The final journey began with nineteen treasures in the case.', 'A borrowed treasure still travels with you.', 'Return the borrowed treasure to the living-room trophy case, then come back to the Stone Barrow.'];
   if (allTreasuresDeposited(state)) return state.flags.map_found
-    ? ['The map marks a clearing near the white house.', 'One of its paths is labelled “To Stone Barrow”.', 'Return to West of House, follow the path southwest, and enter the Stone Barrow threshold.']
+    ? ['The map marks a clearing near the white house.', 'One of its paths is labelled “To Stone Barrow”.', 'Return to West of House, follow the path northwest, and enter the Stone Barrow threshold.']
     : ['Did anything change when the last treasure entered the case?', 'Look beside the completed collection.', 'Take the ancient map which has appeared beside the trophy case.'];
   switch (r) {
     case 'west_house':
