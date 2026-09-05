@@ -1,7 +1,8 @@
 import { ITEMS, REST_ROOMS, ROOMS, START_ROOM, TREASURES } from './campaign.ts';
 import { BALANCE } from './combat.ts';
 import { hasLight } from './darkness.ts';
-import { arrivalAt, districtYaw, sceneBounds, worldPosition } from './scene-layout.ts';
+import { arrivalAt, districtYaw, isHouseGrounds, sceneBounds, worldPosition } from './scene-layout.ts';
+import { restoreHouseGorgePosition } from './exterior-geography.ts';
 import { restoreRoutePosition } from './route-surfaces.ts';
 import type { ActionResult, GameState, ObjectDef, RoomDef } from './types.ts';
 
@@ -743,6 +744,7 @@ export function deserialize(raw: string): GameState | null {
     }
     for (const id of [...state.inventory, ...state.deposited]) state.flags[`picked_${id}`] = true;
     state.position = restoreRoutePosition(state.room, state.position, state.flags);
+    if (isHouseGrounds(state.room)) state.position = restoreHouseGorgePosition(state.position);
     state.lantern = Boolean(data.lantern) && hasItem(state, 'lantern');
     state.visited = [...new Set(data.visited.filter(id => Object.hasOwn(ROOMS, id)))];
     if (!state.visited.includes(state.room)) state.visited.push(state.room);

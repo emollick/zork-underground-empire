@@ -4,6 +4,7 @@ import type { Collider, ExitDef, RoomDef } from './types';
 import { createWaterMaterial, createFallsMaterial, createRainbowMaterial } from './water-materials';
 import { RAINBOW_BRIDGE, rainbowHeight } from './route-surfaces';
 import { createPipeLeak } from './pipe-leak';
+import { HOUSE_GORGE, houseGorgeDepth, inHouseGorge } from './exterior-geography';
 
 type Mats = Record<string, THREE.MeshStandardMaterial>;
 type Animated = { object: THREE.Object3D; kind: string; baseY?: number };
@@ -205,8 +206,9 @@ class Builder {
   box(x: number, y: number, z: number, w: number, h: number, d: number, mat: THREE.Material, bevel = false, yaw = 0) {
     this.batch(bevel ? BLOCK : BOX, mat, [x, y, z], [w, h, d], [0, yaw, 0]);
   }
-  rock(x: number, y: number, z: number, sx: number, sy: number, sz: number, mat = this.mat.rock) {
-    this.batch(ROCK, mat, [x, y, z], [sx, sy, sz], [this.rand(0, .5), this.rand(0, Math.PI), this.rand(0, .6)]);
+  rock(x: number, y: number, z: number, sx: number, sy: number, sz: number, mat = this.mat.rock, visible = true) {
+    const rotation = [this.rand(0, .5), this.rand(0, Math.PI), this.rand(0, .6)];
+    if (visible) this.batch(ROCK, mat, [x, y, z], [sx, sy, sz], rotation);
   }
   cylinder(x: number, y: number, z: number, radius: number, height: number, mat: THREE.Material, tapered = false) {
     this.batch(tapered ? TAPER : CYLINDER, mat, [x, y, z], [radius, height, radius]);
@@ -583,9 +585,10 @@ class Builder {
     if (roof) this.box(0, height + 1.1, 0, this.w + 10, 2.4, this.d + 10, this.mat.charcoal);
     this.exits(); this.rubble();
   }
-  fern(x: number, z: number, s = 1, baseY = 0) {
+  fern(x: number, z: number, s = 1, baseY = 0, visible = true) {
     for (let i = 0; i < 7; i++) {
       const a = i * Math.PI * 2 / 7, len = s * this.rand(.6, 1.05);
+      if (!visible) continue;
       const base = new THREE.Vector3(x, baseY + .08, z), tip = new THREE.Vector3(x + Math.cos(a) * len, baseY + .35 * s, z + Math.sin(a) * len);
       this.beam(base, tip, .009 * s, this.mat.ivy);
       for (let j = 1; j < 7; j++) for (const sign of [-1, 1]) {
@@ -601,7 +604,7 @@ class Builder {
     const natural = this.room.id === 'house_grounds';
     // Generate every original random sample even for trees cleared from the
     // field; later trees, scenery and saved walking routes must not shift.
-    const standing = !natural || !inHouseField(x, z);
+    const standing = !natural || !inHouseField(x, z) && !inHouseGorge(x, z);
     const shape = organic(x, z, 17), leanAngle = organic(x, z, 9) * Math.PI * 2;
     const lean = h * (.018 + organic(x, z, 7) * .064), branchCount = 4 + Math.floor(organic(x, z, 23) * 3);
     const trunkAt = (t: number) => new THREE.Vector3(x + Math.cos(leanAngle) * lean * t * t + Math.sin(t * Math.PI) * bend * .44, h * t, z + Math.sin(leanAngle) * lean * t * t);
@@ -738,8 +741,8 @@ class Builder {
     const clearRoute = (x: number, z: number, margin = 2.8) => houseYard(x, z) || pathDistance(x, z) < margin || this.nearRoute(x, z, margin) || Math.hypot(x, z - 13) < 4 || beyondRainbowShore(x, z, margin);
     // Insert exact shaft boundaries into the terrain grid, then leave those
     // cells open. A dark decal cannot substitute for a real descent aperture.
-    const xs = [...Array.from({ length: 89 }, (_, i) => -67 + i * 104 / 88), -31.67, -30.33].sort((a, b) => a - b);
-    const zs = [...Array.from({ length: 69 }, (_, i) => -49 + i * 81 / 68), 6.33, 7.67].sort((a, b) => a - b);
+    const xs = [...Array.from({ length: 89 }, (_, i) => -67 + i * 104 / 88), -31.67, -30.33, HOUSE_GORGE.east, HOUSE_GORGE.east - HOUSE_GORGE.shoulder].sort((a, b) => a - b);
+    const zs = [...Array.from({ length: 69 }, (_, i) => -49 + i * 81 / 68), 6.33, 7.67, HOUSE_GORGE.south, HOUSE_GORGE.south - HOUSE_GORGE.shoulder].sort((a, b) => a - b);
     const terrainVertices: number[] = [], terrainUVs: number[] = [], terrainIndices: number[] = [];
     for (const z of zs) for (const x of xs) { terrainVertices.push(x, 0, z); terrainUVs.push(x / 3.2, z / 3.2); }
     for (let j = 0; j < zs.length - 1; j++) for (let i = 0; i < xs.length - 1; i++) {
@@ -749,7 +752,7 @@ class Builder {
     }
     const terrain = new THREE.BufferGeometry(); terrain.setAttribute('position', new THREE.Float32BufferAttribute(terrainVertices, 3)); terrain.setAttribute('uv', new THREE.Float32BufferAttribute(terrainUVs, 2)); terrain.setIndex(terrainIndices);
     const terrainPos = terrain.attributes.position, terrainUv = terrain.attributes.uv;
-    const terrainHeight = (x: number, z: number) => beyondRainbowShore(x, z) ? -4.3 : clearRoute(x, z, 2.9) ? -.085 : -.06 + Math.sin(x * .24) * Math.cos(z * .31) * .12 + Math.cos(x * .52 + z * .28) * .045;
+    const terrainHeight = (x: number, z: number) => inHouseGorge(x, z) ? -.085 - houseGorgeDepth(x, z) : clearRoute(x, z, 2.9) ? -.085 : -.06 + Math.sin(x * .24) * Math.cos(z * .31) * .12 + Math.cos(x * .52 + z * .28) * .045;
     const terrainColors: number[] = [], dampEarth = new THREE.Color('#819069'), dryEarth = new THREE.Color('#b4b89b');
     for (let i = 0; i < terrainPos.count; i++) {
       const x = terrainPos.getX(i), z = terrainPos.getZ(i);
@@ -859,8 +862,8 @@ class Builder {
     for (let i = 0; i < 225; i++) {
       const x = this.rand(bounds.minX, bounds.maxX), z = this.rand(bounds.minZ, bounds.maxZ);
       if (clearRoute(x, z, 2.05)) continue;
-      if (i % 3 === 0) this.rock(x, .11, z, this.rand(.3, 1.1), this.rand(.2, .6), this.rand(.3, 1), i % 2 ? this.mat.moss : this.mat.rock);
-      else this.fern(x, z, this.rand(.55, 1.15) * (inHouseField(x, z) ? .5 : 1));
+      if (i % 3 === 0) this.rock(x, .11, z, this.rand(.3, 1.1), this.rand(.2, .6), this.rand(.3, 1), i % 2 ? this.mat.moss : this.mat.rock, !inHouseGorge(x, z));
+      else this.fern(x, z, this.rand(.55, 1.15) * (inHouseField(x, z) ? .5 : 1), 0, !inHouseGorge(x, z));
     }
     if (!this.flags.barrow_path_open) {
       this.beam(new THREE.Vector3(-13.7, .56, 16.7), new THREE.Vector3(-7.1, .73, 18.4), .35, this.mat.bark);
@@ -884,14 +887,16 @@ class Builder {
         this.routeBox(exit, 0, .035, -.25, 4.2, .11, 3, this.mat.paleStone, true);
         this.routeBox(exit, 0, .1, 1.05, 7.9, .18, .3, this.mat.saltStone, true);
         this.routeBox(exit, 0, -1.95, 1.2, 7.9, 4, .3, this.mat.darkAshlar);
-        const waterAt = this.routePoint(exit, 0, -2.8, 14);
-        const channel = this.water(waterAt[0], waterAt[2], 7.8, 26, -2.8, '#234953'); channel.rotation.y = this.routeYaw(exit);
-        channel.name = 'route:forest:rainbow-shore';
+        const channel = this.water(-88.325, -86.1, 123.35, 127.8, -HOUSE_GORGE.depth + .3, '#173e47');
+        channel.name = 'route:forest:rainbow-gorge-water';
         this.routeCollision(exit, 0, 14, 7.8, 26);
         for (const side of [-1, 1]) for (let i = 0; i < 9; i++) {
           const p = this.routePoint(exit, side * 4.1, -.5, 1.8 + i * 2.8);
-          this.rock(p[0], p[1], p[2], .64, 1.4 + i % 3 * .25, 1.6, this.mat.mossStone);
+          // Preserve the old channel-bank samples without retaining a narrow
+          // walkable-looking canal alongside the rainbow.
+          this.rock(p[0], p[1], p[2], .64, 1.4 + i % 3 * .25, 1.6, this.mat.mossStone, false);
         }
+        this.houseGorge(exit, foliage);
         continue;
       }
       const [x, z] = exit.position;
@@ -926,7 +931,8 @@ class Builder {
       const fringe = THREE.MathUtils.smoothstep(edge, 1.06, 2.05);
       const height = (lawn ? .19 + random() * .21 : .25 + random() * .34) * (.35 + fringe * .65);
       const spread = .8 + random() * 1.6, bucket = Math.floor(random() * 3);
-      this.batch(GRASS, grassMaterials[bucket], [x, terrainHeight(x, z) - .04, z], [spread, height, spread], [0, random() * Math.PI * 2, 0], false);
+      const yaw = random() * Math.PI * 2;
+      if (!inHouseGorge(x, z)) this.batch(GRASS, grassMaterials[bucket], [x, terrainHeight(x, z) - .04, z], [spread, height, spread], [0, yaw, 0], false);
     }
     // Ferns and broad leaves form islands under the canopy, leaving the actual
     // house circuit, targets, and paths legible at eye level.
@@ -936,8 +942,8 @@ class Builder {
       if (edge < 2.25 || sheltered(x, z) || nearTarget(x, z, 2.1) || nearShaft(x, z, 2.6) || Math.abs(x) < 10.9 && z > -23.8 && z < -3.8) continue;
       const y = terrainHeight(x, z), lush = .7 + random() * .85, angle = random() * Math.PI * 2;
       const meadow = inHouseField(x, z), plantScale = meadow ? .32 : 1;
-      if (i % 4 === 0) this.fern(x, z, lush * plantScale, y + .025);
-      else {
+      if (i % 4 === 0) this.fern(x, z, lush * plantScale, y + .025, !inHouseGorge(x, z));
+      else if (!inHouseGorge(x, z)) {
         const material = i % 3 ? broadleaf : shadeleaf;
         for (let face = 0; face < 3; face++) this.batch(PLANE, material, [x + Math.sin(face * 2.4) * .16 * plantScale, y + (.28 + lush * .12) * plantScale, z + Math.cos(face * 2.4) * .16 * plantScale], [lush * 1.6 * plantScale, lush * .86 * plantScale, 1], [face === 2 ? -1.14 : -.26, angle + face * 1.17, .12], false);
         if (!meadow && edge > 3.6 && i % 9 === 0) {
@@ -953,8 +959,87 @@ class Builder {
       const x = bounds.minX + random() * (bounds.maxX - bounds.minX), z = bounds.minZ + random() * (bounds.maxZ - bounds.minZ);
       const distance = pathDistance(x, z);
       if (distance > 2.3 || sheltered(x, z) || nearTarget(x, z, .8) || nearShaft(x, z, .95)) continue;
-      this.batch(SMALLROCK, fallen[i % 3], [x, -.022, z], [.055 + random() * .05, .004, .07 + random() * .04], [0, random() * Math.PI * 2, -.06], false);
+      const sx = .055 + random() * .05, sz = .07 + random() * .04, yaw = random() * Math.PI * 2;
+      if (!inHouseGorge(x, z)) this.batch(SMALLROCK, fallen[i % 3], [x, -.022, z], [sx, .004, sz], [0, yaw, -.06], false);
     }
+  }
+  houseGorge(exit: ExitDef, foliage: THREE.Material) {
+    const { east, south, depth } = HOUSE_GORGE;
+    // Continuous cliff faces and a broad river replace the former miniature
+    // canal. All new rock above the water sits on the unsafe side of the rim.
+    for (const side of ['south', 'east'] as const) {
+      const across = 64, down = 9, positions: number[] = [], uvs: number[] = [], indices: number[] = [];
+      const end = side === 'south' ? east : south;
+      for (let j = 0; j <= down; j++) for (let i = 0; i <= across; i++) {
+        const p = -150 + (end + 150) * i / across, t = j / down;
+        const fold = Math.sin(p * .29 + t * 4.7) * .19 + Math.sin(p * .71 - t * 2.3) * .09;
+        const inset = .025 + t * (.95 + fold) + Math.sin(t * Math.PI) * (.24 + organic(i, j, 181) * .34);
+        positions.push(side === 'south' ? p : east - inset, -.085 - t * (depth + .5), side === 'south' ? south - inset : p);
+        uvs.push(p / 5.5, t * depth / 4.5);
+        if (i < across && j < down) { const v = j * (across + 1) + i; indices.push(v, v + 1, v + across + 1, v + 1, v + across + 2, v + across + 1); }
+      }
+      const geometry = new THREE.BufferGeometry(); geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3)); geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2)); geometry.setIndex(indices); geometry.computeVertexNormals();
+      const material = this.mat.rock.clone(); material.side = THREE.DoubleSide;
+      this.mesh(geometry, material, [0, 0, 0]).name = `route:forest:${side}-gorge-cliff`;
+    }
+    // Staggered rock shelves below the rim break up the strata without the
+    // repeated pointed columns of the former bank geometry.
+    for (let i = 0; i < 14; i++) {
+      const x = -70 + i * 3.05, y = -4.2 - organic(i, 1, 182) * 8.5;
+      this.batch(ROCK, i % 3 ? this.mat.rock : this.mat.mossStone, [x, y, south - 1.65], [2.1 + organic(i, 2, 182) * 1.4, 1.65 + organic(i, 3, 182) * 1.7, .78], [0, 0, (organic(i, 4, 182) - .5) * .3]);
+    }
+    for (let i = 0; i < 13; i++) {
+      const z = south - 4.6 - i * 3.2, y = -4.5 - organic(i, 1, 183) * 8;
+      this.batch(ROCK, i % 3 ? this.mat.rock : this.mat.mossStone, [east - 1.6, y, z], [.75, 1.8 + organic(i, 2, 183) * 1.8, 2.3 + organic(i, 3, 183)], [(organic(i, 4, 183) - .5) * .3, 0, 0]);
+    }
+    // Wooded folds of the near bank screen the rainbow from the opening field;
+    // the actual landing remains a clear three-metre view into the ravine.
+    for (let i = 0; i < 5; i++) {
+      const x = -32.5 + i * 1.25, h = 2.5 + organic(i, 1, 192) * 1.35, z = south - 1.15 - organic(i, 2, 192) * .55;
+      this.batch(ROCK, this.mat.mossStone, [x, h * .52 - .12, z], [1.15, h * .7, .78], [0, 0, 0]);
+      for (let leaf = 0; leaf < 3; leaf++) this.batch(PLANE, foliage, [x + Math.sin(leaf * 2.1) * .38, h + .35, z], [1.6, 1.65, 1], [.2 + leaf * .37, leaf * 1.4, .1]);
+    }
+    const end = this.routePoint(exit, 0, 0, 23.35);
+    const far = new THREE.Group(); far.name = 'route:forest:rainbow-promontory';
+    const promontories = [[end[0], end[2] - 1.8, 3.55, 1.34], [-36.7, -50.5, 3.65, 1.4], [-38.2, -56.7, 4.1, 1.4], [-37.4, -62.7, 5.1, 1.4]];
+    for (const [index, [x, z, radius, stretch]] of promontories.entries()) {
+      const geometry = new THREE.CylinderGeometry(radius, radius * 1.32, depth, 13, 7);
+      const position = geometry.attributes.position;
+      for (let i = 0; i < position.count; i++) {
+        const px = position.getX(i), py = position.getY(i), pz = position.getZ(i), a = Math.atan2(pz, px);
+        const rough = 1 + Math.sin(a * 3 + index) * .06 + Math.sin(a * 7 - py * .31) * .035;
+        position.setXYZ(i, px * rough, py, pz * rough * stretch);
+      }
+      geometry.computeVertexNormals();
+      const rock = new THREE.Mesh(geometry, this.mat.mossStone); rock.position.set(x, -depth / 2 - .085, z); far.add(rock);
+    }
+    const landing = new THREE.Mesh(BLOCK, this.mat.paleStone); landing.position.set(end[0], -.025, end[2] - .1); landing.scale.set(2.35, .1, 1.45); far.add(landing);
+    far.traverse(node => { if (node instanceof THREE.Mesh) { node.castShadow = true; node.receiveShadow = true; } }); this.group.add(far);
+    const farPath = this.mat.moss.clone(); farPath.color.set('#969176'); farPath.roughness = 1;
+    this.trailRibbon([[end[0], end[2]], [-36.2, -47], [-37.8, -54], [-37.7, -61]], 1.55, farPath);
+    // Unequal overlapping masses form a wooded headland; a narrow path bends
+    // out of sight between its rock folds instead of stopping on a pedestal.
+    const headlandRocks: THREE.Mesh[] = [];
+    for (const [x, y, z, sx, sy, sz] of [[-64, -9, -64, 10, 12.5, 7], [-48.5, -8.5, -66, 10.2, 13, 8], [-36.8, -9, -66, 7.2, 12, 8.5]]) {
+      const rock = this.mesh(ROCK, this.mat.mossStone, [x, y, z], [0, .15, 0]); rock.scale.set(sx, sy, sz); rock.updateMatrixWorld(true); headlandRocks.push(rock);
+    }
+    for (const [x, z, s] of [[-41.6, -56.8, 2.8], [-32.9, -58.4, 2.5], [-42.3, -63, 3.5]]) this.batch(ROCK, this.mat.mossStone, [x, s * .5 - .15, z], [s * .8, s, s * 1.1], [0, .3, .1]);
+    const groundRay = new THREE.Raycaster();
+    for (let i = 0; i < 8; i++) {
+      const x = -64 + organic(i, 1, 201) * 29, z = -64 - organic(i, 2, 201) * 5, h = 6.5 + organic(i, 3, 201) * 6;
+      groundRay.set(new THREE.Vector3(x, 32, z), new THREE.Vector3(0, -1, 0));
+      const ground = groundRay.intersectObjects(headlandRocks, false)[0]; if (!ground) continue;
+      const base = ground.point.y - .13;
+      this.beam(new THREE.Vector3(x, base, z), new THREE.Vector3(x + .38, base + h, z), .19 + h * .005, this.mat.bark, true);
+      for (let branch = 0; branch < 4; branch++) {
+        const a = branch * 2.4 + organic(i, branch, 202), by = base + h * (.46 + branch * .1), spread = 1.8 + organic(i, branch, 203) * 1.8;
+        const tip = new THREE.Vector3(x + Math.cos(a) * spread, by + 1.1, z + Math.sin(a) * spread);
+        this.beam(new THREE.Vector3(x + .2, by, z), tip, .075, this.mat.bark, true);
+        for (let leaf = 0; leaf < 2; leaf++) this.batch(PLANE, foliage, [tip.x, tip.y + leaf * .45, tip.z], [3.8, 3.5, 1], [.2 + leaf * .7, a + leaf * 1.3, .12]);
+      }
+    }
+    this.mist(-43, -5.5, -43, 17, '#9fbec1', .2);
+    this.mist(-44, .8, -57, 18, '#acc5c4', .19);
   }
   trailRibbon(points: number[][], width: number, material: THREE.Material) {
     const curve = new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(p[0], -.044, p[1])));
@@ -1753,6 +1838,16 @@ class Builder {
     const approachSpectrum = !walkable && !solid;
     const bowMaterial = createRainbowMaterial(false); if (solid) bowMaterial.opacity = .24; else if (approachSpectrum) bowMaterial.opacity = .46;
     const bow = this.mesh(ribbon(approachSpectrum), bowMaterial, [0, 0, 0]); bow.name = 'route:rainbow:spectrum'; bow.castShadow = false; bow.renderOrder = 2;
+    if (approachSpectrum) {
+      // The insubstantial forest spectrum resolves only from the gorge's
+      // approach. The cast bridge and the rainbow at Aragain Falls stay visible.
+      const observer = new THREE.Vector3();
+      bow.onBeforeRender = (_renderer, _scene, camera) => {
+        camera.getWorldPosition(observer);
+        const distance = Math.hypot(observer.x - start[0], observer.z - start[1]);
+        bowMaterial.opacity = .46 * (1 - THREE.MathUtils.smoothstep(distance, 18, 28));
+      };
+    }
     if (!solid) return;
     const span = this.mesh(ribbon(true), createRainbowMaterial(true), [0, 0, 0]); span.name = walkable ? 'route:rainbow:walkable-span' : 'route:rainbow:distant-span'; span.castShadow = false;
     const edgeMaterial = new THREE.MeshStandardMaterial({ color: '#e8d4a5', emissive: '#d6d3ac', emissiveIntensity: .42, roughness: .25, metalness: .15 });

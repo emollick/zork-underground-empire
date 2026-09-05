@@ -13,7 +13,8 @@ import { carriesLight, grueTiming, hasLight } from './darkness.ts';
 import { makeProp, makeCreature } from './models.ts';
 import { animateCoffinLid, placeCoffinContents, setCoffinOpen } from './coffin-pose.ts';
 import { makeLandscape, makeSky } from './atmosphere.ts';
-import { TREASURES } from './campaign.ts';
+import { ROOMS, START_ROOM, TREASURES } from './campaign.ts';
+import { createGame } from './game.ts';
 import { CombatEffects } from './effects.ts';
 import type { Collider, GameState, ObjectDef, RoomDef } from './types.ts';
 
@@ -71,6 +72,7 @@ export class GameView {
   private heroKey = new THREE.DirectionalLight('#e0d5be', 1.3);
   private impacts = new CombatEffects();
   private elapsed = 0;
+  private titleState?: GameState;
   private baseExposure = 1.04;
   private lastSize = '';
   private touchMode = false;
@@ -371,6 +373,7 @@ export class GameView {
     return { group: arm, update };
   }
   enter(room: RoomDef, state: GameState) {
+    this.titleState = undefined;
     this.disposeEnvironment(); this.impacts.clear(); this.room = room; this.objects.clear(); this.objectRotations.clear(); this.enemy = undefined; this.secondaryCreature = undefined; this.grue = undefined; this.grueStage = -99; this.caseState = '';
     this.worldRoom = isHouseGrounds(room.id) ? houseExterior(state) : room;
     const world = isHouseGrounds(room.id) ? buildHouseExterior(this.worldRoom, this.materials, state.flags) : buildWorld(room, this.materials, state.flags);
@@ -409,6 +412,20 @@ export class GameView {
     if (room.dark) { this.grue = makeCreature('grue', this.materials); this.grue.group.visible = false; this.environment.add(this.grue.group); }
     this.addMotes(this.worldRoom, outside);
     this.camera.position.set(state.position[0], 1.72 + routeFloorHeight(room.id, state.position, state.flags), state.position[1]); this.camera.rotation.set(0, state.yaw, 0, 'YXZ');
+  }
+  showTitle(time: number, settings: GameState['settings']) {
+    if (!this.titleState) {
+      const preview = createGame(); preview.settings = { ...settings };
+      this.enter(ROOMS[START_ROOM], preview);
+      this.titleState = preview;
+    }
+    const portrait = window.innerWidth < window.innerHeight;
+    // The title uses the same meadow and house, with its own framing and state.
+    // Continuing an expedition restores its normal room, camera and field of view.
+    this.titleState.settings = { ...settings, fov: portrait ? 68 : 58 };
+    const drift = settings.motion ? Math.sin(time * .045) * .32 : 0;
+    this.camera.position.set(portrait ? 9 + drift : 9.5 + drift, 3.4, portrait ? 23 : 16);
+    this.camera.lookAt(portrait ? 0 : -7.5, 3.4, -13);
   }
   refreshObjects(state: GameState) {
     if (!this.room || !this.worldRoom) return;
@@ -551,6 +568,10 @@ export class GameView {
     if (this.camera.fov !== state.settings.fov) { this.camera.fov = state.settings.fov; this.camera.updateProjectionMatrix(); }
   }
   update(dt: number, state: GameState, motion: { moving: number; attack: number; blocking: boolean; damage: number; darkness: number; darkTime: number; title: boolean }) {
+    if (motion.title && this.titleState) {
+      state = this.titleState;
+      motion = { moving: 0, attack: 0, blocking: false, damage: 0, darkness: 0, darkTime: 0, title: true };
+    }
     this.elapsed += dt; const t = this.elapsed;
     this.impacts.update(dt);
     for (const group of this.objects.values()) {

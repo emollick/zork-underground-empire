@@ -22,7 +22,7 @@ test('existing outdoor saves migrate into the shared landscape without losing di
 });
 
 test('current saves retain locations outside the former individual room rectangles', () => {
-  const state = createGame(); state.room = 'forest'; state.position = [-51.8, -25.3]; state.yaw = 2.1;
+  const state = createGame(); state.room = 'forest'; state.position = [-51.8, -20.3]; state.yaw = 2.1;
   const restored = deserialize(serialize(state)); assert.ok(restored);
   assert.deepEqual(restored.position, state.position); assert.equal(restored.yaw, state.yaw);
 });

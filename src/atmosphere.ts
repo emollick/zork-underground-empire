@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { RoomDef } from './types.ts';
+import { HOUSE_GORGE, inHouseGorge } from './exterior-geography.ts';
 
 /** Distant land keeps the navigable clearing inside a larger, continuous landscape. */
 export function makeLandscape(room: RoomDef, materials: Record<string, THREE.MeshStandardMaterial>): THREE.Group {
@@ -14,7 +15,7 @@ export function makeLandscape(room: RoomDef, materials: Record<string, THREE.Mes
   const cutouts: { minX: number; maxX: number; minZ: number; maxZ: number }[] = [];
   if (room.id === 'house_grounds') cutouts.push(
     { minX: -31.67, maxX: -30.33, minZ: 6.33, maxZ: 7.67 },
-    { minX: -39.9, maxX: -32.1, minZ: -47, maxZ: -21 },
+    { minX: -150, maxX: HOUSE_GORGE.east, minZ: -150, maxZ: HOUSE_GORGE.south },
   );
   if (room.id === 'falls') cutouts.push({ minX: -24, maxX: 1, minZ: -1.9, maxZ: 5.5 });
   for (const exit of room.exits) if (exit.role === 'water' || exit.role === 'landing') {
@@ -62,14 +63,17 @@ export function makeLandscape(room: RoomDef, materials: Record<string, THREE.Mes
     const x = (random() - 0.5) * 210, z = (random() - 0.5) * 210;
     if (Math.abs(x) < room.size[0] / 2 + 2 && Math.abs(z) < room.size[1] / 2 + 3) continue;
     const h = 11 + random() * 13, y = height(x, z); const width = 0.7 + random();
-    matrix.position.set(x, y + h / 2, z); matrix.scale.set(width, h, width); matrix.rotation.set((random() - 0.5) * 0.08, random() * Math.PI, (random() - 0.5) * 0.06); matrix.updateMatrix(); trunks.setMatrixAt(placed, matrix.matrix);
+    // Consume every old sample so scenery elsewhere stays fixed; the gorge
+    // cannot contain the distant backdrop's old ground-level trees.
+    const standing = room.id !== 'house_grounds' || !inHouseGorge(x, z);
+    matrix.position.set(x, y + h / 2, z); matrix.scale.set(width, h, width); matrix.rotation.set((random() - 0.5) * 0.08, random() * Math.PI, (random() - 0.5) * 0.06); if (!standing) matrix.scale.setScalar(0); matrix.updateMatrix(); trunks.setMatrixAt(placed, matrix.matrix);
     for (let j = 0; j < 3; j++) {
       const angle = random() * Math.PI * 2, spread = (3.7 - j * 0.65) * width;
       const end = new THREE.Vector3(x + Math.sin(angle) * spread, y + h * (0.65 + j * 0.12), z + Math.cos(angle) * spread);
       const start = new THREE.Vector3(x, y + h * (0.47 + j * 0.1), z), direction = end.clone().sub(start);
-      matrix.position.copy(start).addScaledVector(direction, 0.5); matrix.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize()); matrix.scale.set(width, direction.length(), width); matrix.updateMatrix(); branches.setMatrixAt(arms++, matrix.matrix);
+      matrix.position.copy(start).addScaledVector(direction, 0.5); matrix.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize()); matrix.scale.set(width, direction.length(), width); if (!standing) matrix.scale.setScalar(0); matrix.updateMatrix(); branches.setMatrixAt(arms++, matrix.matrix);
       for (let face = 0; face < 3; face++) {
-        matrix.position.copy(end); matrix.rotation.set((face - 1) * 0.46, angle + face * Math.PI / 3, (random() - 0.5) * 0.6); matrix.scale.set((6.3 - j * 0.5) * width, (5.5 - j * 0.5) * width, 1); matrix.updateMatrix(); crowns.setMatrixAt(leaves++, matrix.matrix);
+        matrix.position.copy(end); matrix.rotation.set((face - 1) * 0.46, angle + face * Math.PI / 3, (random() - 0.5) * 0.6); matrix.scale.set((6.3 - j * 0.5) * width, (5.5 - j * 0.5) * width, 1); if (!standing) matrix.scale.setScalar(0); matrix.updateMatrix(); crowns.setMatrixAt(leaves++, matrix.matrix);
       }
     }
     placed++;

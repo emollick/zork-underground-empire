@@ -11,6 +11,7 @@ import { loadMaterials } from './materials.ts';
 import { TouchControls, prefersTouchControls } from './touch-controls.ts';
 import { arrivalAt, houseDistrictAt, isHouseGrounds, sceneBounds, visitDistrict } from './scene-layout.ts';
 import { constrainRouteStep, routeFloorHeight } from './route-surfaces.ts';
+import { constrainHouseGorgeStep } from './exterior-geography.ts';
 import { doorwayTargetScore } from './interaction-target.ts';
 import { hasLight, GRUE_DEATH, GRUE_DESCRIPTION, GRUE_WARNING, grueTiming } from './darkness.ts';
 import { ATTACK_COST, DODGE_COST, ATTACK_COOLDOWN, PARRY_STAGGER, BALANCE, resolveStrike, enemyTiming, swingConnects, swordDamage } from './combat.ts';
@@ -303,6 +304,7 @@ function collidingPosition(x: number, z: number, radius = 0.38) {
       else z = collider.z + collider.d / 2 + radius;
     }
   }
+  if (isHouseGrounds(state.room)) [x, z] = constrainHouseGorgeStep([x, z], radius);
   return new THREE.Vector2(x, z);
 }
 function updatePlayer(dt: number) {
@@ -613,9 +615,7 @@ function frame(now: number) {
     saveTime += dt; if (saveTime > 8) { saveTime = 0; save(); }
   }
   if (titleMode) {
-    const room = ROOMS[state.room]; const angle = Math.sin(time * 0.045) * 0.08;
-    view.camera.position.set(room.spawn[0] + 6 + Math.sin(angle) * 2, 2.9, Math.min(room.size[1] / 2 - 3, room.spawn[1] + 1));
-    view.camera.lookAt(0, 3.3, -room.size[1] * 0.2);
+    view.showTitle(time, state.settings);
   }
   damageFlash = Math.max(0, damageFlash - dt * 1.9);
   if ((!paused && !titleMode) || now - lastRender > (titleMode ? 40 : 100)) {
@@ -636,9 +636,9 @@ async function boot() {
     ui.loading(0.04, 'Gathering the things an adventure needs');
     const materials = await loadMaterials(n => ui.loading(0.08 + n * 0.8, 'Opening the Great Underground Empire'));
     view = new GameView(ui.canvas, materials, touch?.enabled ?? initialTouch);
-    // Title always opens in the forest; the saved expedition is only loaded on Continue.
+    // The title previews the actual house grounds; Continue alone loads the save.
     const start = createGame(); state = { ...start, settings: { ...state.settings } };
-    view.enter(ROOMS[START_ROOM], state); sound.enter(ROOMS[START_ROOM]); ui.loading(1);
+    view.showTitle(0, state.settings); sound.enter(ROOMS[START_ROOM]); ui.loading(1);
     ui.ready(!!saved); if (QA) installReviewControls(); requestAnimationFrame(frame);
   } catch (error) { console.error(error); ui.error(error instanceof Error ? error.message : 'The graphics engine could not be initialized.'); }
 }
