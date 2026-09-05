@@ -52,7 +52,7 @@ test('returning through a real threshold emerges beside that threshold', () => {
   assert.equal(travel(state, 'kitchen_to_behind_house').success, true);
   assert.deepEqual(state.position, [0, -19.2]); assert.equal(state.flags.window_open, true);
   state.room = 'maze'; state.inventory.push('skeleton_key');
-  assert.equal(interact(state, 'maze_grate').success, true);
+  assert.equal(interact(state, 'maze_grate', 'use:skeleton_key').success, true);
   assert.equal(interact(state, 'maze_grate').travel, 'forest');
   assert.deepEqual(state.position, [-31, 9.3]);
 });
@@ -68,7 +68,7 @@ test('maze arrivals stay beside the passage or grating actually used', () => {
     assert.ok(towardRoom > 0, 'the arrival faces into the room');
   }
   const state = createGame(); state.room = 'maze'; state.inventory.push('skeleton_key');
-  assert.equal(interact(state, 'maze_grate').success, true);
+  assert.equal(interact(state, 'maze_grate', 'use:skeleton_key').success, true);
   assert.equal(interact(state, 'maze_grate').travel, 'forest');
   assert.equal(interact(state, 'forest_grate').travel, 'maze');
   const grate = ROOMS.maze.objects.find(object => object.id === 'maze_grate')!;
@@ -153,7 +153,7 @@ test('a new puzzle starts with its own hint tier even when the HUD observation s
 test('mill experimentation survives a save and preserves a recoverable cargo path', () => {
   let state = createGame();
   state.room = 'coal_mine'; state.inventory = ['coal', 'screwdriver', 'torch', 'lantern']; state.lantern = true;
-  assert.equal(interact(state, 'lift_basket').success, true);
+  assert.equal(interact(state, 'lift_basket', 'lower').success, true);
   assert.equal(travel(state, 'coal_mine_to_machine_room').success, true);
   assert.equal(interact(state, 'lowered_basket').success, true);
   const cargo = [...state.inventory];
@@ -162,7 +162,7 @@ test('mill experimentation survives a save and preserves a recoverable cargo pat
   assert.ok(actions.includes('close') && actions.includes('turn') && actions.includes('load'),
     'physical controls must remain available before the correct operation is discovered');
   assert.equal(interact(state, 'pressure_mill', 'close').success, true, 'the empty chamber can be closed');
-  interact(state, 'pressure_mill', 'turn');
+  interact(state, 'pressure_mill', 'use:screwdriver');
   assert.equal(Boolean(state.flags.diamond_created), false, 'running an empty chamber cannot create a reward');
   assert.deepEqual(state.inventory, cargo, 'an empty run consumes neither cargo nor the service tool');
   assert.equal(interact(state, 'pressure_mill', 'load').success, false, 'coal cannot pass through the closed lid');
@@ -173,12 +173,12 @@ test('mill experimentation survives a save and preserves a recoverable cargo pat
   assert.equal(interact(state, 'pressure_mill', 'open').success, true);
   assert.equal(interact(state, 'pressure_mill', 'load').success, true);
   assert.equal(state.inventory.includes('coal'), false);
-  assert.equal(interact(state, 'pressure_mill', 'turn').success, false, 'the open chamber cannot run');
+  assert.equal(interact(state, 'pressure_mill', 'use:screwdriver').success, false, 'the open chamber cannot run');
   assert.equal(Boolean(state.flags.diamond_created), false);
   assert.equal(state.flags.machine_loaded, true, 'the interlock preserves the loaded sample');
 
   assert.equal(interact(state, 'pressure_mill', 'close').success, true);
-  assert.equal(interact(state, 'pressure_mill', 'turn').success, true);
+  assert.equal(interact(state, 'pressure_mill', 'use:screwdriver').success, true);
   assert.equal(state.flags.diamond_created, true, 'the player can recover and finish after incorrect attempts');
   assert.equal(interact(state, 'diamond').success, true);
   interact(state, 'pressure_mill', 'turn');

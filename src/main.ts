@@ -132,7 +132,7 @@ function handleResult(result: ActionResult) {
   if (result.travel) { setPaused(false); void transitionRoom(); return; }
   const ending = result.ending || state.completed && result.ending !== false && result.title?.toLowerCase().includes('master');
   if (result.sound) sound.effect(result.sound); else sound.effect(result.success ? 'take' : 'ui');
-  if (result.choices?.length || result.prompt) { setPaused(true); ui.choice(result); }
+  if (result.itemSelection || result.choices?.length || result.prompt) { setPaused(true); ui.choice(result); }
   else {
     if (ui.currentPanel === 'interaction' && !ending) setPaused(false);
     if (result.message) ui.toast(result.message, result.title ?? '', result.message.length > 190 ? 10 : 6);

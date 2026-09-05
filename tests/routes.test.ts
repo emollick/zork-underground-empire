@@ -55,9 +55,9 @@ test('the secured rope supplies both the descent and return ascent', () => {
   assert.equal(travel(state, 'temple_to_dome').success, false, 'the temple has no climbable rope before it is secured');
   assert.equal(interact(state, 'temple_rope').success, false);
   state.room = 'dome';
-  assert.equal(interact(state, 'dome_railing').success, false);
+  assert.equal(interact(state, 'dome_railing', 'use:rope').success, false);
   state.inventory.push('rope');
-  assert.equal(interact(state, 'dome_railing').success, true); assert.equal(state.room, 'dome');
+  assert.equal(interact(state, 'dome_railing', 'use:rope').success, true); assert.equal(state.room, 'dome');
   assert.equal(interact(state, 'secured_dome_rope').travel, 'temple');
   assert.equal(interact(state, 'temple_rope').travel, 'dome');
   assert.deepEqual(state.position, arrivalAt('dome', 'temple').position);

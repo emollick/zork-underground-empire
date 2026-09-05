@@ -38,13 +38,13 @@ test('a leak save exposes its repair target, and putty remains reusable after re
   state = reload(state);
   assert.equal(leakVisible(state), true, 'A saved active leak must have a visible repair target');
   const withoutPutty = structuredClone(state);
-  assert.equal(interact(state, 'leaking_pipe').success, false);
+  assert.equal(interact(state, 'leaking_pipe', 'use:putty').success, false);
   assert.deepEqual(state, withoutPutty, 'A missing tool cannot silently repair or worsen the leak');
   assert.equal(interact(state, 'control_buttons', 'blue').success, false, 'A jammed blue button cannot stack leaks');
 
   act(state, 'putty');
   const inventory = [...state.inventory];
-  act(state, 'leaking_pipe');
+  act(state, 'leaking_pipe', 'use:putty');
   state = reload(state);
   assert.equal(state.flags.dam_leak, false);
   assert.equal(leakVisible(state), false, 'A repaired pipe must stop offering the obsolete repair interaction');
@@ -53,7 +53,7 @@ test('a leak save exposes its repair target, and putty remains reusable after re
   act(state, 'control_buttons', 'blue');
   state = reload(state);
   assert.equal(leakVisible(state), true, 'Reopening the leak must restore its repair interaction');
-  act(state, 'leaking_pipe');
+  act(state, 'leaking_pipe', 'use:putty');
   assert.deepEqual(reload(state).inventory, inventory, 'Repeated experimentation must not consume the only solution');
 });
 
@@ -61,23 +61,23 @@ test('the dam requires a wrench, enabled controls and a sealed pipe across reloa
   let state = maintenance();
   act(state, 'control_buttons', 'blue'); act(state, 'control_buttons', 'yellow');
   state = reload(state); visit(state, 'dam');
-  assert.equal(interact(state, 'dam_bolt').success, false, 'The controls cannot substitute for the wrench');
+  assert.equal(interact(state, 'dam_bolt', 'use:wrench').success, false, 'The controls cannot substitute for the wrench');
   assert.equal(travel(state, 'dam_to_reservoir').success, false);
 
   visit(state, 'maintenance'); act(state, 'wrench');
   state = reload(state); visit(state, 'dam');
-  assert.equal(interact(state, 'dam_bolt').success, false, 'The enabled bolt must still respect the active leak');
+  assert.equal(interact(state, 'dam_bolt', 'use:wrench').success, false, 'The enabled bolt must still respect the active leak');
   assert.equal(travel(state, 'dam_to_reservoir').success, false);
 
-  visit(state, 'maintenance'); act(state, 'putty'); act(state, 'leaking_pipe'); act(state, 'control_buttons', 'brown');
+  visit(state, 'maintenance'); act(state, 'putty'); act(state, 'leaking_pipe', 'use:putty'); act(state, 'control_buttons', 'brown');
   state = reload(state); visit(state, 'dam');
-  assert.equal(interact(state, 'dam_bolt').success, false, 'Repair does not enable controls that were switched off');
+  assert.equal(interact(state, 'dam_bolt', 'use:wrench').success, false, 'Repair does not enable controls that were switched off');
   assert.equal(travel(state, 'dam_to_reservoir').success, false);
 
   visit(state, 'maintenance'); act(state, 'control_buttons', 'yellow');
   state = reload(state); visit(state, 'dam');
   const carried = [...state.inventory];
-  act(state, 'dam_bolt'); state = reload(state);
+  act(state, 'dam_bolt', 'use:wrench'); state = reload(state);
   assert.equal(state.flags.reservoir_drained, true);
   assert.deepEqual(state.inventory, carried, 'Turning the bolt must retain both reusable tools');
   visit(state, 'reservoir'); state = reload(state); visit(state, 'dam');
@@ -87,7 +87,7 @@ test('the dam requires a wrench, enabled controls and a sealed pipe across reloa
 test('a drained expedition keeps its access and treasure progress after later control experiments', () => {
   let state = maintenance();
   for (const id of ['wrench', 'putty']) act(state, id);
-  act(state, 'control_buttons', 'yellow'); visit(state, 'dam'); act(state, 'dam_bolt');
+  act(state, 'control_buttons', 'yellow'); visit(state, 'dam'); act(state, 'dam_bolt', 'use:wrench');
   visit(state, 'reservoir'); act(state, 'jewel_trunk'); act(state, 'pump');
   visit(state, 'dam'); visit(state, 'maintenance');
   act(state, 'control_buttons', 'brown'); act(state, 'control_buttons', 'blue');
@@ -109,7 +109,7 @@ test('a drained expedition keeps its access and treasure progress after later co
   assert.deepEqual(state, solved, 'Inspecting an already open sluice must not reset flags or consume items');
   state = reload(state); visit(state, 'reservoir');
   assert.equal(visibleObjects(state).some(object => object.id === 'jewel_trunk'), false, 'Previously recovered treasure must not respawn');
-  visit(state, 'dam'); visit(state, 'maintenance'); act(state, 'leaking_pipe');
+  visit(state, 'dam'); visit(state, 'maintenance'); act(state, 'leaking_pipe', 'use:putty');
   state = reload(state);
   assert.equal(state.flags.dam_leak, false);
   assert.equal(state.flags.reservoir_drained, true);

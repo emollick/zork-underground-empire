@@ -90,16 +90,16 @@ test('campaign has a complete, reciprocal graph with nineteen depositable treasu
 test('an actual exit-and-interaction route recovers every treasure and reaches the ending', () => {
   let state = begin();
   go(state, 'gallery'); act(state, 'painting');
-  go(state, 'maze'); act(state, 'coins'); act(state, 'skeleton_key'); act(state, 'maze_grate'); act(state, 'cyclops_legend');
+  go(state, 'maze'); act(state, 'coins'); act(state, 'skeleton_key'); act(state, 'maze_grate', 'use:skeleton_key'); act(state, 'cyclops_legend');
   go(state, 'cyclops'); act(state, 'cyclops', 'name');
   go(state, 'treasure_room');
   assert.equal(interact(state, 'chalice').success, false, 'chalice must remain guarded');
   assert.equal(defeatEnemy(state, 'thief').success, true);
-  assert.equal(interact(state, 'locksmith_table').success, false, 'collect the fine picks before using them');
-  act(state, 'fine_picks'); act(state, 'locksmith_table'); act(state, 'chalice');
+  assert.equal(interact(state, 'locksmith_table', 'use:fine_picks').success, false, 'collect the fine picks before using them');
+  act(state, 'fine_picks'); act(state, 'locksmith_table', 'use:fine_picks'); act(state, 'chalice');
   assert.ok(state.inventory.includes('egg') && state.inventory.includes('canary'), 'thief-first route retains both treasures');
-  go(state, 'forest'); act(state, 'songbird_perch'); act(state, 'bauble');
-  go(state, 'dome'); act(state, 'dome_railing'); act(state, 'torch');
+  go(state, 'forest'); act(state, 'songbird_perch', 'use:canary'); act(state, 'bauble');
+  go(state, 'dome'); act(state, 'dome_railing', 'use:rope'); act(state, 'torch');
   go(state, 'temple'); act(state, 'bell'); act(state, 'candles'); act(state, 'black_book'); act(state, 'temple_fire'); act(state, 'temple_mirror');
   go(state, 'atlantis');
   assert.equal(interact(state, 'trident').success, false, 'mirror must not bypass the flooded reservoir');
@@ -113,9 +113,9 @@ test('an actual exit-and-interaction route recovers every treasure and reaches t
   go(state, 'dam'); act(state, 'dam_fire');
   go(state, 'maintenance'); for (const id of ['wrench', 'screwdriver', 'putty', 'matches']) act(state, id);
   act(state, 'control_buttons', 'blue'); act(state, 'control_buttons', 'yellow');
-  go(state, 'dam'); assert.equal(interact(state, 'dam_bolt').success, false, 'a pressure leak prevents operation');
-  go(state, 'maintenance'); act(state, 'leaking_pipe');
-  go(state, 'dam'); act(state, 'dam_bolt');
+  go(state, 'dam'); assert.equal(interact(state, 'dam_bolt', 'use:wrench').success, false, 'a pressure leak prevents operation');
+  go(state, 'maintenance'); act(state, 'leaking_pipe', 'use:putty');
+  go(state, 'dam'); act(state, 'dam_bolt', 'use:wrench');
   go(state, 'reservoir'); act(state, 'jewel_trunk'); act(state, 'pump');
   go(state, 'atlantis'); act(state, 'trident');
   go(state, 'hades'); act(state, 'hades_lectern', 'candles'); act(state, 'hades_lectern', 'book'); act(state, 'skull');
@@ -123,12 +123,12 @@ test('an actual exit-and-interaction route recovers every treasure and reaches t
   // Banking a useful treasure cannot destroy a later puzzle solution.
   go(state, 'living_room'); act(state, 'trophy_case', 'deposit');
   assert.ok(state.deposited.includes('torch') && state.deposited.includes('sceptre'));
-  go(state, 'bat_cavern'); act(state, 'bat_roost'); act(state, 'jade');
-  go(state, 'coal_mine'); act(state, 'gas_notice'); act(state, 'bracelet'); act(state, 'coal');
-  const absentTorch = interact(state, 'lift_basket');
+  go(state, 'bat_cavern'); act(state, 'bat_roost', 'use:garlic'); act(state, 'jade');
+  go(state, 'coal_mine'); act(state, 'gas_notice', 'use:lantern'); act(state, 'bracelet'); act(state, 'coal');
+  const absentTorch = interact(state, 'lift_basket', 'lower');
   assert.equal(absentTorch.success, false); assert.match(absentTorch.message, /borrow/i);
   go(state, 'living_room'); act(state, 'trophy_case', 'borrow:torch');
-  go(state, 'coal_mine'); act(state, 'lift_basket');
+  go(state, 'coal_mine'); act(state, 'lift_basket', 'lower');
   assert.ok(!state.inventory.includes('torch') && state.flags.basket_torch, 'cargo is physically removed until collected');
 
   // Reload while the only coal and an important treasure are in transit.
@@ -137,12 +137,16 @@ test('an actual exit-and-interaction route recovers every treasure and reaches t
   assert.deepEqual(restored, state);
   state = restored;
   go(state, 'machine_room'); act(state, 'lowered_basket');
-  assert.equal(interact(state, 'pressure_mill', 'turn').success, false);
+  assert.equal(interact(state, 'pressure_mill', 'use:screwdriver').success, false);
   act(state, 'pressure_mill', 'close');
   assert.match(hints(state)[2], /open.*lid/i, 'closing the empty mill must produce a usable recovery hint');
   act(state, 'pressure_mill', 'open');
   assert.match(hints(state)[2], /load.*coal/i, 'an opened empty chamber advances to loading instead of repeating the lid instruction');
-  act(state, 'pressure_mill', 'load'); act(state, 'pressure_mill', 'close'); act(state, 'pressure_mill', 'turn'); act(state, 'diamond');
+  act(state, 'pressure_mill', 'load'); act(state, 'pressure_mill', 'close');
+  const switchChoice = interact(state, 'pressure_mill', 'turn');
+  assert.equal(switchChoice.itemSelection, true, 'turning the switch still requires choosing a tool');
+  assert.equal(state.flags.diamond_created, undefined);
+  act(state, 'pressure_mill', 'use:screwdriver'); act(state, 'diamond');
   assert.doesNotMatch(hints(state)[2], /close|START/i, 'the completed mill directs the player onward');
   assert.ok(state.inventory.includes('torch'), 'the freight torch remains recoverable');
   go(state, 'coal_mine');
@@ -150,19 +154,22 @@ test('an actual exit-and-interaction route recovers every treasure and reaches t
   assert.equal(emptyBasket.success, true);
   assert.match(emptyBasket.message, /empty|collected/i, 'returning to the shaft acknowledges that the cargo has already been collected');
   assert.doesNotMatch(emptyBasket.message, /retrieve.*cargo/i, 'an empty basket must not start another retrieval loop');
-  go(state, 'dam_base'); act(state, 'folded_boat');
+  go(state, 'dam_base'); act(state, 'folded_boat', 'use:pump');
   go(state, 'river'); act(state, 'river_buoy');
   assert.equal(interact(state, 'river_landing', 'current').success, false);
   act(state, 'river_landing', 'shore');
-  go(state, 'sandy_cave'); act(state, 'shovel'); act(state, 'sand_drift'); act(state, 'scarab');
+  go(state, 'sandy_cave'); act(state, 'shovel'); act(state, 'sand_drift', 'use:shovel'); act(state, 'scarab');
   const excavated = interact(state, 'sand_drift');
   assert.equal(excavated.success, true);
   assert.doesNotMatch(excavated.message, /scarab is exposed|scarab.*waits/i, 'the excavated drift must not promise a scarab already in the satchel');
   assert.equal(state.inventory.filter(id => id === 'scarab').length, 1);
   go(state, 'falls');
-  assert.match(interact(state, 'rainbow_ledge').message, /borrow/i);
+  const absentSceptre = interact(state, 'rainbow_ledge', 'use:sceptre');
+  assert.equal(absentSceptre.success, false);
+  assert.equal(absentSceptre.itemSelection, true);
+  assert.equal(state.flags.rainbow_solid, undefined, 'a displayed sceptre cannot be used from across the empire');
   go(state, 'living_room'); act(state, 'trophy_case', 'borrow:sceptre');
-  go(state, 'falls'); act(state, 'rainbow_ledge'); act(state, 'gold');
+  go(state, 'falls'); act(state, 'rainbow_ledge', 'use:sceptre'); act(state, 'gold');
   const emptyRainbow = interact(state, 'rainbow_ledge');
   assert.equal(emptyRainbow.success, true);
   assert.doesNotMatch(emptyRainbow.message, /gold.*waits/i, 'the rainbow remains a route after its gold has been collected');
@@ -206,7 +213,7 @@ test('the food-and-water cyclops route also opens the treasury without consuming
 
 test('the explorer’s allusion preserves the name puzzle until the explicit solution hint', () => {
   const state = begin(); go(state, 'maze');
-  act(state, 'skeleton_key'); act(state, 'maze_grate');
+  act(state, 'skeleton_key'); act(state, 'maze_grate', 'use:skeleton_key');
   const note = interact(state, 'cyclops_legend');
   assert.equal(note.success, true);
   assert.match(note.message, /Nobody.*Ithaca/i, 'the written clue must offer a recognizable literary connection');
@@ -232,20 +239,21 @@ test('early display of the egg and canary preserves both later puzzle uses', () 
   go(state, 'maze'); act(state, 'cyclops_legend');
   go(state, 'cyclops'); act(state, 'cyclops', 'say:Odysseus');
   go(state, 'treasure_room'); assert.equal(defeatEnemy(state, 'thief').success, true); act(state, 'fine_picks');
-  const absentEgg = interact(state, 'locksmith_table');
+  const absentEgg = interact(state, 'locksmith_table', 'use:fine_picks');
   assert.equal(absentEgg.success, false); assert.match(absentEgg.message, /borrow/i);
   assert.equal(state.flags.egg_open, undefined);
   go(state, 'living_room'); act(state, 'trophy_case', 'borrow:egg');
-  go(state, 'treasure_room'); act(state, 'locksmith_table');
+  go(state, 'treasure_room'); act(state, 'locksmith_table', 'use:fine_picks');
   assert.ok(state.inventory.includes('egg') && state.inventory.includes('canary'));
   go(state, 'living_room'); act(state, 'trophy_case', 'deposit');
   assert.ok(state.deposited.includes('canary'));
   go(state, 'forest');
-  const absentCanary = interact(state, 'songbird_perch');
-  assert.match(absentCanary.message, /borrow/i);
+  const absentCanary = interact(state, 'songbird_perch', 'use:canary');
+  assert.equal(absentCanary.success, false);
+  assert.equal(absentCanary.itemSelection, true);
   assert.equal(state.flags.bauble_revealed, undefined, 'a displayed canary cannot sing from across the forest');
   go(state, 'living_room'); act(state, 'trophy_case', 'borrow:canary');
-  go(state, 'forest'); act(state, 'songbird_perch'); act(state, 'bauble');
+  go(state, 'forest'); act(state, 'songbird_perch', 'use:canary'); act(state, 'bauble');
   assert.equal(state.inventory.filter(id => id === 'bauble').length, 1);
   assert.ok(state.deposited.includes('egg'), 'opening the egg leaves the separate egg treasure recoverable');
 });
@@ -291,7 +299,7 @@ test('guidance advances after entry and a solved dam instead of sending the play
 
   const drained = begin();
   go(drained, 'maintenance'); act(drained, 'wrench'); act(drained, 'control_buttons', 'yellow');
-  go(drained, 'dam'); act(drained, 'dam_bolt');
+  go(drained, 'dam'); act(drained, 'dam_bolt', 'use:wrench');
   assert.equal(drained.flags.reservoir_drained, true);
   assert.match(hints(drained)[2], /reservoir/i);
   assert.ok(hints(drained).every(value => !/press yellow|turn the bolt|enable.*controls/i.test(value)), 'the next nudge should lead to the reward, not repeat the completed solution');
@@ -335,7 +343,7 @@ test('early observations preserve discovery and exact puzzle answers require the
 
 test('darkness guidance recognizes an earned torch even when the lantern is switched off', () => {
   const state = begin();
-  go(state, 'dome'); act(state, 'dome_railing'); act(state, 'torch');
+  go(state, 'dome'); act(state, 'dome_railing', 'use:rope'); act(state, 'torch');
   go(state, 'cellar'); state.lantern = false;
   assert.doesNotMatch([objective(state).text, ...hints(state)].join(' '), /pitch black|eaten by a grue|turn on.*lantern/i);
   go(state, 'living_room'); act(state, 'trophy_case', 'deposit');

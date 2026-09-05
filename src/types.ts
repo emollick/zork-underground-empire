@@ -41,5 +41,7 @@ export interface ActionResult {
   travel?: string; refresh?: boolean; ending?: boolean;
   choices?: { label: string; action: string }[];
   prompt?: { label: string; action: string; submit: string };
+  itemSelection?: boolean;
+  feedback?: string;
 }
 export interface Collider { x: number; z: number; w: number; d: number; }

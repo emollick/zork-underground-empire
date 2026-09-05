@@ -62,6 +62,20 @@ function requireHeld(state: GameState, id: string, reason: string): ActionResult
   if (state.deposited.includes(id)) return no(`${ITEMS[id].name} is in the trophy case. You can borrow it from the case, use it here, then put it back.`, 'A treasure still has work to do');
   return no(reason);
 }
+function useItem(state: GameState, choice: string | undefined, id: string, title: string, observation: string, refusal: string): ActionResult | undefined {
+  // The choice is transient. Inventory ownership is checked again when it is
+  // submitted, and merely examining the target cannot advance the puzzle.
+  if (choice === `use:${id}` && hasItem(state, id)) return;
+  const selected = choice?.startsWith('use:') ? choice.slice(4) : undefined;
+  return {
+    success: choice === undefined, title, message: observation, sound: 'ui', itemSelection: true,
+    choices: state.inventory.filter(item => Object.hasOwn(ITEMS, item))
+      .sort((a, b) => ITEMS[a].name.localeCompare(ITEMS[b].name, 'en'))
+      .map(item => ({ label: ITEMS[item].name, action: `use:${item}` })),
+    feedback: choice === undefined ? undefined : !selected || !hasItem(state, selected)
+      ? 'You are not carrying that item.' : refusal,
+  };
+}
 function treasureCount(state: GameState): number { return TREASURES.filter(id => ownsItem(state, id)).length; }
 
 function take(state: GameState, id: string): ActionResult {
@@ -162,7 +176,10 @@ function eggLock(state: GameState, choice?: string): ActionResult {
   if (!state.flags.thief_defeated && choice !== 'offer') {
     return menu('A professional interest', 'The thief glances at the jeweled egg. For a moment, the workmanship interests him more than you do.', [{ label: 'Let the thief open the egg', action: 'offer' }]);
   }
-  if (state.flags.thief_defeated && !hasItem(state, 'fine_picks')) return no('The thief’s fine picks lie beside the table. Collect them; a blade would ruin the clasp.');
+  if (state.flags.thief_defeated) {
+    const selection = useItem(state, choice, 'fine_picks', 'The egg’s clasp', 'The jeweled egg has a fine, intricate clasp. Forcing it would damage the workmanship.', 'The clasp resists. You stop before damaging the egg.');
+    if (selection) return selection;
+  }
   state.flags.egg_open = true;
   acquire(state, 'canary');
   state.flags.thief_distracted = !state.flags.thief_defeated;
@@ -228,13 +245,15 @@ function ritual(state: GameState, choice?: string): ActionResult {
   return no('The spirits jeer loudly and ignore you.');
 }
 
-function basket(state: GameState): ActionResult {
+function basket(state: GameState, choice?: string): ActionResult {
   if (state.flags.basket_retrieved) return ok('The basket is empty. Its cargo has been collected below.', 'Cargo collected', 'inspect');
   if (state.flags.basket_lowered) return ok('The basket waits beside the pressure mill below. Follow the side passage to retrieve its cargo.', 'Cargo delivered', 'inspect');
   const missing = requireHeld(state, 'coal', 'The empty basket hangs over the shaft.')
     ?? requireHeld(state, 'screwdriver', 'The mechanism below has a narrow, slotted switch.')
     ?? requireHeld(state, 'torch', 'The basket disappears into an unlit shaft. Your lantern is needed for the narrow passage.');
   if (missing) return missing;
+  if (!choice) return menu('The shaft basket', 'The basket can carry the coal, screwdriver and ivory torch down to the mill. Your lantern will stay with you.', [{ label: 'Lower the supplies', action: 'lower' }]);
+  if (choice !== 'lower') return no('The basket remains where it is.', 'The shaft basket');
   for (const id of cargoItems) { remove(state, id); state.flags[`basket_${id}`] = true; }
   state.flags.basket_lowered = true;
   note(state, 'mine_freight', 'A way for the cargo', 'The coal, screwdriver and ivory torch have descended in the basket. Retrieve them beside the pressure mill below.');
@@ -259,9 +278,10 @@ function machine(state: GameState, choice?: string): ActionResult {
     state.flags.machine_closed = false;
     return ok('The heavy lid opens.', '', 'mechanism');
   }
-  if (choice === 'turn') {
+  if (choice === 'turn' || choice?.startsWith('use:')) {
     if (!state.flags.machine_closed) return no('The machine doesn\'t seem to want to do anything.');
-    const missing = requireHeld(state, 'screwdriver', 'It\'s not clear how to turn it on with your bare hands.'); if (missing) return missing;
+    const selection = useItem(state, choice === 'turn' ? undefined : choice, 'screwdriver', 'The mill’s switch', 'A narrow, slotted switch is marked “START”.', 'That does not fit the slot in the switch.');
+    if (selection) return selection;
     if (!state.flags.machine_loaded) return ok('The machine rumbles, flashes, and falls quiet. The chamber is still empty.', '', 'mechanism');
     state.flags.diamond_created = true;
     note(state, 'diamond_made', 'A better class of carbon', 'Coal, a sealed chamber, and the slotted switch. The ancient mill has made a diamond.');
@@ -307,8 +327,11 @@ export function interact(state: GameState, objectId: string, choice?: string): A
       note(state, `rest_${state.room}`, `Rest: ${ROOMS[state.room].name}`, 'A safe fire, marked for a later return.');
       return ok('You rest beside the fire. Wounds mend, your hands grow steady, and this place becomes your safe return.', 'Rested', 'rest');
     case 'grate': {
-      if (state.flags.grate_open) return travel(state, state.room === 'forest' ? 'forest_to_maze' : 'maze_to_forest');
-      const missing = requireHeld(state, 'skeleton_key', 'The grating is locked.'); if (missing) return missing;
+      if (state.flags.grate_open) return choice === undefined
+        ? travel(state, state.room === 'forest' ? 'forest_to_maze' : 'maze_to_forest')
+        : ok('The grating is already open.', 'The iron grating', 'inspect');
+      const selection = useItem(state, choice, 'skeleton_key', object.label, 'The grating is locked.', 'That does not fit the lock.');
+      if (selection) return selection;
       state.flags.grate_open = true;
       note(state, 'grate', 'Daylight above the maze', 'The skeleton key opens the grating between the maze and the forest.');
       return ok('The skeleton key turns. You lift the iron grate, opening a route between the maze and the forest.', 'A way back to daylight', 'door');
@@ -321,14 +344,18 @@ export function interact(state: GameState, objectId: string, choice?: string): A
     case 'egg_lock': return eggLock(state, choice);
     case 'songbird': {
       if (state.flags.bauble_revealed) return ok('The songbird has answered the canary. Its brass bauble lies below the perch.', 'A fair exchange', 'inspect');
-      const missing = requireHeld(state, 'canary', 'You hear the chirping of a songbird.'); if (missing) return { ...missing, success: true, sound: 'bird' };
+      const selection = useItem(state, choice, 'canary', object.label, 'You hear the chirping of a songbird.', 'The songbird continues chirping, quite unimpressed.');
+      if (selection) return selection;
       state.flags.bauble_revealed = true;
       note(state, 'song', 'A song answered', 'Winding the clockwork canary in the forest brought an answer from the songbird, and a brass bauble from its beak.');
       return ok('The canary chirps, slightly off-key, an aria from a forgotten opera. From out of the greenery flies a lovely songbird. It perches on a limb just over your head and opens its beak to sing. As it does so a beautiful brass bauble drops from its mouth, bounces off the top of your head, and lands glimmering in the grass. As the canary winds down, the songbird flies away.', '', 'bird');
     }
     case 'dome_rope': {
-      if (state.flags.dome_secured) return travel(state, 'dome_to_temple');
-      const missing = requireHeld(state, 'rope', 'The drop is too far to jump. A sturdy wooden railing runs around the dome.'); if (missing) return missing;
+      if (state.flags.dome_secured) return choice === undefined
+        ? travel(state, 'dome_to_temple')
+        : ok('The rope is already tied to the railing.', 'A safe descent', 'inspect');
+      const selection = useItem(state, choice, 'rope', object.label, 'The drop is too far to jump. A sturdy wooden railing runs around the dome.', 'That will not make the drop safe.');
+      if (selection) return selection;
       state.flags.dome_secured = true;
       note(state, 'dome', 'A safe descent', 'The rope is secured to the dome’s wooden railing.');
       return ok('The rope is tied to the railing.', '', 'mechanism');
@@ -364,13 +391,15 @@ export function interact(state: GameState, objectId: string, choice?: string): A
       return { ...menu('Loud Room', 'Every sound comes back in your own voice.', []), prompt: { label: 'Call into the cavern', action: 'say', submit: 'Call' } };
     case 'controls': return controls(state, choice);
     case 'patch': {
-      const missing = requireHeld(state, 'putty', 'Water sprays from an open joint in the pipe.'); if (missing) return missing;
+      const selection = useItem(state, choice, 'putty', object.label, 'Water sprays from an open joint in the pipe.', 'That will not seal the leaking joint.');
+      if (selection) return selection;
       state.flags.dam_leak = false;
       return ok('You press the putty over the joint. The spray dwindles and stops. There is plenty left in the tube.', 'Pipe sealed', 'solve');
     }
     case 'dam_bolt': {
       if (state.flags.reservoir_drained) return ok('The sluices are locked open. The reservoir stair is clear, and the river continues safely below.', 'The dam is working', 'inspect');
-      const missing = requireHeld(state, 'wrench', 'The square bolt is too large to turn with your bare hands.'); if (missing) return missing;
+      const selection = useItem(state, choice, 'wrench', object.label, 'A large square bolt is mounted in the control panel. Above it is a small green bubble.', 'You cannot get a grip on the square bolt with that.');
+      if (selection) return selection;
       if (!state.flags.controls_enabled) return no('The bolt will not move. The green indicator is dark.');
       if (state.flags.dam_leak) return no('The bolt shudders and stops. The pressure gauge reads empty.');
       state.flags.reservoir_drained = true;
@@ -379,16 +408,21 @@ export function interact(state: GameState, objectId: string, choice?: string): A
     }
     case 'bat': {
       if (state.flags.bat_quiet) return ok(ownsItem(state, 'jade') ? 'The bat keeps a very respectful distance. The mine passage is clear.' : 'The bat keeps a very respectful distance. The jade figure and mine passage are clear.', 'The discouragement persists', 'inspect');
-      const missing = requireHeld(state, 'garlic', 'A large vampire bat hangs from the ceiling. It hisses as you approach.'); if (missing) return missing;
+      const selection = useItem(state, choice, 'garlic', object.label, 'A large vampire bat hangs from the ceiling. It hisses as you approach.', 'The bat bares its fangs and stays where it is.');
+      if (selection) return selection;
       state.flags.bat_quiet = true;
       note(state, 'bat', 'A small defense', 'The garlic has driven the vampire bat away from the mine passage and jade figurine.');
       return ok('You raise the garlic. The vampire bat withdraws to the highest part of the cavern with a thoroughly offended squeal.', 'Kitchen wisdom', 'solve');
     }
-    case 'gas':
-      if (!hasItem(state, 'lantern') || !state.lantern) return no('The air smells sharply of gas. An open flame would be a very poor idea.');
+    case 'gas': {
+      if (state.flags.gas_safe) return ok('You have found the clear air along the wall. The passage is within reach.', 'The gas passage', 'inspect');
+      const selection = useItem(state, choice, 'lantern', object.label, 'The air smells sharply of gas. The passage disappears into darkness.', ['use:torch', 'use:candles', 'use:matches'].includes(choice ?? '') ? 'You keep the flame away from the gas. That would be a very poor idea.' : 'That does not help you find a safe way through the gas.');
+      if (selection) return selection;
+      if (!state.lantern) return no('The lantern is dark. Light it before trying the passage.', 'The gas passage');
       state.flags.gas_safe = true;
       return ok('You check the lantern’s sealed shutter and follow the low, clear air along the wall. The sapphire bracelet is safely within reach.', 'A safer light', 'solve');
-    case 'basket': return basket(state);
+    }
+    case 'basket': return basket(state, choice);
     case 'basket_retrieve':
       if (!state.flags.basket_lowered) return no('The basket has not been lowered. Load it in the coal mine above.');
       for (const id of cargoItems) if (state.flags[`basket_${id}`]) { acquire(state, id); state.flags[`basket_${id}`] = false; }
@@ -397,7 +431,8 @@ export function interact(state: GameState, objectId: string, choice?: string): A
     case 'machine': return machine(state, choice);
     case 'boat': {
       if (state.flags.boat_ready) return ok('The boat is inflated and ready at the landing. The route onto the river is open.', 'Ready to launch', 'inspect');
-      const missing = requireHeld(state, 'pump', 'You don\'t have enough lung power to inflate it.'); if (missing) return missing;
+      const selection = useItem(state, choice, 'pump', object.label, 'The folded plastic is an inflatable boat. Its valve is closed.', 'That does not inflate the boat.');
+      if (selection) return selection;
       state.flags.boat_ready = true;
       note(state, 'boat', 'Inflatable boat', 'The boat is inflated.');
       return ok('The boat inflates and appears seaworthy.', '', 'water');
@@ -413,13 +448,15 @@ export function interact(state: GameState, objectId: string, choice?: string): A
       return ok('You steer into the eddy and secure the boat. A sandy cave and a trail to the falls lie beyond the landing.', 'A sensible arrival', 'water');
     case 'dig': {
       if (state.flags.scarab_revealed) return ok(ownsItem(state, 'scarab') ? 'Only the hole remains. Further digging would be ambition beyond the needs of the occasion.' : 'The scarab is exposed. You stop digging before the sand begins to have ideas.', 'Enough excavation', 'inspect');
-      const missing = requireHeld(state, 'shovel', 'The sand slips through your fingers.'); if (missing) return missing;
+      const selection = useItem(state, choice, 'shovel', object.label, 'Wind has banked the sand into a deep drift here.', 'You disturb a little sand, but get no farther.');
+      if (selection) return selection;
       state.flags.scarab_revealed = true;
       return ok('You work carefully through the disturbed drift. A jeweled scarab slides into the light. Further digging would be ambition beyond the needs of the occasion.', 'The sand’s secret', 'reveal');
     }
     case 'rainbow': {
       if (state.flags.rainbow_solid) return ok(ownsItem(state, 'gold') ? 'The rainbow is solid. The far path returns to the forest.' : 'The rainbow is solid. The pot of gold waits across the crossing, and the far path returns to the forest.', 'A road made of light', 'inspect');
-      const missing = requireHeld(state, 'sceptre', 'The rainbow is beautiful, but far too insubstantial to walk on.'); if (missing) return missing;
+      const selection = useItem(state, choice, 'sceptre', object.label, 'The rainbow is beautiful, but far too insubstantial to walk on.', 'The rainbow remains as insubstantial as before.');
+      if (selection) return selection;
       state.flags.rainbow_solid = true;
       note(state, 'rainbow', 'A road made of light', 'Raising the Egyptian sceptre at Aragain Falls made the rainbow solid. The crossing leads to gold and a path back to the forest.');
       return ok('Suddenly, the rainbow appears to become solid and, I venture, walkable.', '', 'reveal');
@@ -536,8 +573,8 @@ export function hints(state: GameState): string[] {
     }
     case 'forest': {
       if (!ownsItem(state, 'egg')) return ['Have you looked at the tree’s low branches?', 'Something in the nest catches the light.', 'Approach the nest and press E to take the jewel-encrusted egg.'];
-      if (!ownsItem(state, 'canary')) return ['Unlike most eggs, this one is hinged.', 'The delicate clasp calls for dexterity. Ordinary force is unlikely to help.', 'Bring the egg to the thief’s worktable in the Treasure Room, borrowing it from the case if necessary. Let him open it; if he has fallen, collect his fine picks and use the worktable.'];
-      if (!state.flags.bauble_revealed) return ['The songbird takes an interest in some sounds more than others.', 'Your clockwork canary was built to sing.', 'Carry the canary to the songbird and press E. If you deposited the canary, borrow it from the trophy case first.'];
+      if (!ownsItem(state, 'canary')) return ['Unlike most eggs, this one is hinged.', 'The delicate clasp calls for dexterity. Ordinary force is unlikely to help.', 'Bring the egg to the thief’s worktable in the Treasure Room, borrowing it from the case if necessary. Let him open it; if he has fallen, collect his fine picks, examine the worktable and choose the picks.'];
+      if (!state.flags.bauble_revealed) return ['The songbird takes an interest in some sounds more than others.', 'Your clockwork canary was built to sing.', 'Examine the songbird and choose the clockwork canary from your satchel. If you deposited the canary, borrow it from the trophy case first.'];
       if (!ownsItem(state, 'bauble')) return ['Something fell as the songbird opened its beak.', 'Look in the grass below the perch.', 'Take the brass bauble at the foot of the songbird’s tree.'];
       if (!state.flags.grate_open) return ['There is old iron beneath the leaves.', 'The grating has a lock, rather than a lifting handle.', 'Use the skeleton key from the maze at the iron grating. The route can then be used in either direction.'];
       return ['The path and the grating lead away from this clearing.', 'One leads toward the house, the other below ground.', 'Use the iron grating to return to the maze, or walk to the white house and deposit carried treasures.'];
@@ -578,7 +615,7 @@ export function hints(state: GameState): string[] {
       return ['He looks prepared to eat horses, much less mere adventurers.', 'Perhaps you are carrying something he would rather eat than you.', state.flags.cyclops_name_known ? 'Offer the hot pepper sandwich, then water. Or say “Odysseus”, the sailor alluded to in the explorer’s note.' : 'Offer the hot pepper sandwich from the kitchen, then the bottle of water. The explorer’s note in the maze also records an alternative.'];
     }
     case 'treasure_room':
-      if (ownsItem(state, 'egg') && !ownsItem(state, 'canary')) return ['Have you examined the thief’s worktable?', 'His tools are suited to the sort of clasp on your jeweled egg.', 'Use the worktable with the egg in your satchel, borrowing it from the case if necessary. If the thief has fallen, first collect the fine picks beside his table.'];
+      if (ownsItem(state, 'egg') && !ownsItem(state, 'canary')) return ['Have you examined the thief’s worktable?', 'His tools are suited to the sort of clasp on your jeweled egg.', 'Use the worktable with the egg in your satchel, borrowing it from the case if necessary. If the thief has fallen, collect the fine picks beside his table and choose them at the clasp.'];
       if (!state.flags.thief_defeated) return ['The stiletto moves faster than the troll’s axe.', 'The thief leaves less time to counter, but still has to recover after a thrust.', 'Dodge or parry the thrust, then strike during his recovery. Defeat him before trying to take the guarded chalice.'];
       if (!ownsItem(state, 'chalice')) return ['Something valuable remains after the thief’s fall.', 'His intricately engraved cup is no longer guarded.', 'Take the silver chalice.'];
       return ['The worktable remains useful even without its proprietor.', 'Fine locks and ordinary weapons require rather different skills.', 'If you find a delicate locked object, bring it to this table. Otherwise return through the Cyclops Room.'];
@@ -612,7 +649,7 @@ export function hints(state: GameState): string[] {
       if (!state.flags.controls_enabled) return r === 'maintenance'
         ? ['Does a click always have its effect in the room where you hear it?', 'Watch the dam’s green bubble after trying the colored buttons.', 'Press the yellow button. Take the wrench, return to the dam and use it on the large bolt.']
         : ['The bolt is not the only feature of the control panel.', 'The green bubble appears to be an indicator. Other controls may affect it.', 'Go to Maintenance, press yellow and collect the wrench. Return to the dam and turn the large bolt.'];
-      return ['The green plastic bubble is glowing serenely.', 'The controls are ready. The bolt still requires a tool which fits its shape.', hasItem(state, 'wrench') ? 'Examine the large bolt to turn it with your wrench.' : 'Collect the wrench in Maintenance, then use it at the dam’s large bolt.'];
+      return ['The green plastic bubble is glowing serenely.', 'The controls are ready. The bolt still requires a tool which fits its shape.', hasItem(state, 'wrench') ? 'Examine the large bolt and choose the wrench from your satchel.' : 'Collect the wrench in Maintenance, then use it at the dam’s large bolt.'];
     case 'reservoir':
       if (!ownsItem(state, 'jewel_trunk')) return ['What has the retreating water left in the mud?', 'Part of an old trunk is exposed.', 'Take the trunk of jewels from the basin.'];
       if (!hasItem(state, 'pump')) return ['There is equipment on the northern shore.', 'The small hand pump has not been washed away.', 'Collect the hand-held air pump beside the northern landing.'];
@@ -623,12 +660,12 @@ export function hints(state: GameState): string[] {
       if (!state.flags.mirror_awakened) return ['Have you looked closely at the mirror?', 'The tablet joins two identical chambers with a silver line.', 'Examine the ancient mirror to open the passage to the temple.'];
       return ['The sanctuary’s treasure is recovered.', 'The mirror offers a shorter route away from the reservoir.', 'Use the silver passage to the temple, or return through the reservoir toward the mines.'];
     case 'bat_cavern':
-      if (!state.flags.bat_quiet) return ['How does the bat find you without much light?', 'The miner’s note suggests taking advantage of its sense of smell.', 'Carry the clove of garlic from the kitchen and examine the bat’s roost.'];
+      if (!state.flags.bat_quiet) return ['How does the bat find you without much light?', 'The miner’s note suggests taking advantage of its sense of smell.', 'Bring the garlic from the kitchen, examine the bat’s roost and choose the garlic from your satchel.'];
       return ownsItem(state, 'jade')
         ? ['The bat is no longer attending to the passage.', 'The route beneath its roost leads into the coal mine.', 'Take the northern passage into the mine.']
         : ['Something remains beneath the bat’s roost.', 'The little figure is carved from jade.', 'Take the jade figurine, then enter the coal mine.'];
     case 'coal_mine':
-      if (!state.flags.gas_safe) return ['The air smells strongly of coal gas.', 'An exposed flame would be unwise. A closed lantern is another matter.', 'Keep your brass lantern on and examine the gas passage with E.'];
+      if (!state.flags.gas_safe) return ['The air smells strongly of coal gas.', 'An exposed flame would be unwise. A closed lantern is another matter.', 'Keep your brass lantern on, examine the gas passage and choose the lantern from your satchel.'];
       if (!ownsItem(state, 'bracelet')) return ['There is a glint in the gas passage.', 'Blue stones show through the dark.', 'Take the sapphire-encrusted bracelet from the passage.'];
       if (!state.flags.basket_lowered) return ['The chain and the narrow passage were built for different sorts of traffic.', 'The freight manifest separates the mill’s equipment from its operator.', 'Load coal, the screwdriver and the ivory torch into the shaft basket. Coal is here; the screwdriver is in Maintenance; the torch is below the dome. Borrow the torch from the case if you deposited it.'];
       if (!state.flags.basket_retrieved) return ['The loaded basket has descended out of sight.', 'Your cargo is below, not in your satchel.', 'Follow the lower-mill passage and retrieve the cargo from the lowered basket.'];

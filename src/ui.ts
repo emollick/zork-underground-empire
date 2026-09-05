@@ -1,4 +1,5 @@
 import type { ActionResult, GameState, ItemDef, RoomDef } from './types.ts';
+import './item-selection.css';
 
 export const escapeHtml = (value: string) => value.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 export const touchHint = (value: string) => value
@@ -137,6 +138,7 @@ export class GameUI {
     this.open('settings', `<div class="settings-columns"><div class="settings-list"><label>Sound <output>${Math.round(s.volume * 100)}</output><input aria-label="Sound volume" data-setting="volume" type="range" min="0" max="100" value="${s.volume * 100}"/></label><label>Look sensitivity <output>${s.sensitivity}</output><input aria-label="Look sensitivity" data-setting="sensitivity" type="range" min="0.4" max="2" step="0.1" value="${s.sensitivity}"/></label><label>Field of view <output>${s.fov}</output><input aria-label="Field of view" data-setting="fov" type="range" min="60" max="100" step="1" value="${s.fov}"/></label><label>Graphics<select aria-label="Graphics quality" data-setting="quality"><option value="high" ${s.quality === 'high' ? 'selected' : ''}>High · cinematic lighting</option><option value="balanced" ${s.quality === 'balanced' ? 'selected' : ''}>Balanced · smoother performance</option></select></label><label>Combat challenge<select aria-label="Combat challenge" data-setting="difficulty"><option value="explorer" ${s.difficulty === 'explorer' ? 'selected' : ''}>Explorer · generous timing, lighter damage</option><option value="adventurer" ${!s.difficulty || s.difficulty === 'adventurer' ? 'selected' : ''}>Adventurer · deliberate, readable combat</option><option value="veteran" ${s.difficulty === 'veteran' ? 'selected' : ''}>Veteran · faster attacks, harsher mistakes</option></select></label><label class="toggle-label"><input data-setting="motion" type="checkbox" ${s.motion ? 'checked' : ''}/> Camera motion</label></div><div class="controls-guide">${this.controlsGuide()}</div></div>`, 'Settings & controls');
   }
   choice(result: ActionResult) {
+    if (result.itemSelection) { this.itemChoice(result); return; }
     const prompt = result.prompt ? `<form class="spoken-action"><label for="spoken-words">${escapeHtml(result.prompt.label)}</label><div><input id="spoken-words" name="words" type="text" inputmode="text" maxlength="60" autocomplete="off" autocorrect="off" autocapitalize="none" enterkeyhint="go" spellcheck="false" required /><button class="primary-button" type="submit">${escapeHtml(result.prompt.submit)} <span>→</span></button></div></form>` : '';
     this.open('interaction', `<span class="eyebrow">EXAMINE</span><h2>${escapeHtml(result.title ?? 'A closer look')}</h2><p class="interaction-text">${escapeHtml(result.message)}</p><div class="choice-list">${(result.choices ?? []).map(c => `<button data-choice="${escapeHtml(c.action)}">${escapeHtml(c.label)}<span>→</span></button>`).join('')}</div>${prompt}<button class="text-button" data-action="close">Step away</button>`);
     if (result.prompt) {
@@ -144,6 +146,57 @@ export class GameUI {
       this.overlay.querySelector('form')!.addEventListener('submit', event => { event.preventDefault(); if (field.value.trim()) this.onChoice(`${action}:${field.value.trim()}`); });
       if (!this.touchMode) requestAnimationFrame(() => field.focus());
       else field.addEventListener('focus', () => requestAnimationFrame(() => field.scrollIntoView({ block: 'nearest' })));
+    }
+  }
+  private itemChoice(result: ActionResult) {
+    let panel = this.overlay.querySelector<HTMLElement>('.item-selection-panel');
+    const continuing = !!panel;
+    if (!panel) {
+      this.open('interaction', `<div class="item-selection-intro"><span class="eyebrow">EXAMINE</span><h2 tabindex="-1"></h2><p class="interaction-text item-selection-description"></p></div><div class="item-selection-heading"><h3 id="item-selection-label">Choose an item</h3><span class="item-selection-count"></span></div><p class="item-selection-feedback" role="status" aria-live="polite" aria-atomic="true"></p><div class="item-selection-list" role="group" aria-labelledby="item-selection-label"></div><footer class="item-selection-footer"><button type="button" class="text-button" data-action="close">Step away</button></footer>`);
+      panel = this.overlay.querySelector<HTMLElement>('.panel-interaction')!;
+      panel.classList.add('item-selection-panel');
+      // Start on the scene heading without suggesting one carried item.
+      const heading = panel.querySelector<HTMLHeadingElement>('h2')!;
+      heading.addEventListener('keydown', event => {
+        if (event.key !== 'Tab') return;
+        const buttons = panel!.querySelectorAll<HTMLButtonElement>('button');
+        (event.shiftKey ? buttons[buttons.length - 1] : buttons[0])?.focus();
+        event.preventDefault(); event.stopPropagation();
+      });
+    }
+    const heading = panel.querySelector<HTMLHeadingElement>('h2')!;
+    heading.textContent = result.title ?? 'A closer look';
+    panel.querySelector<HTMLElement>('.item-selection-description')!.textContent = result.message;
+    const choices = result.choices ?? [];
+    panel.querySelector<HTMLElement>('.item-selection-count')!.textContent = choices.length ? `${choices.length} carried` : '';
+
+    const list = panel.querySelector<HTMLElement>('.item-selection-list')!;
+    const signature = JSON.stringify(choices);
+    // Keep the actual buttons on retries so browser focus and list scroll survive.
+    if (list.dataset.choices !== signature) {
+      const scrollTop = list.scrollTop;
+      const focused = document.activeElement instanceof HTMLElement && list.contains(document.activeElement)
+        ? document.activeElement.closest<HTMLButtonElement>('[data-choice]')?.dataset.choice : undefined;
+      list.innerHTML = choices.length
+        ? choices.map(choice => `<button type="button" data-choice="${escapeHtml(choice.action)}" aria-label="Use ${escapeHtml(choice.label)}"><span>${escapeHtml(choice.label)}</span><span class="item-selection-arrow" aria-hidden="true">→</span></button>`).join('')
+        : '<p class="item-selection-empty">Your satchel is empty.</p>';
+      list.dataset.choices = signature; list.scrollTop = scrollTop;
+      if (focused) {
+        const replacement = Array.from(list.querySelectorAll<HTMLButtonElement>('[data-choice]')).find(button => button.dataset.choice === focused);
+        (replacement ?? heading).focus({ preventScroll: true });
+      }
+    }
+    panel.querySelector<HTMLElement>('.item-selection-feedback')!.textContent = result.feedback ?? '';
+    if (!continuing) heading.focus({ preventScroll: true });
+    else {
+      const focused = document.activeElement;
+      if (focused instanceof HTMLButtonElement && list.contains(focused)) {
+        // Feedback can shorten the list. Reveal only the clipped part of the retry target.
+        const viewport = list.getBoundingClientRect(), bounds = focused.getBoundingClientRect();
+        const top = viewport.top + list.clientTop + 2, bottom = viewport.top + list.clientTop + list.clientHeight - 2;
+        if (bounds.top < top) list.scrollTop += bounds.top - top;
+        else if (bounds.bottom > bottom) list.scrollTop += bounds.bottom - bottom;
+      }
     }
   }
   journal(state: GameState, rooms: Record<string, RoomDef>, items: Record<string, ItemDef>, objective: { title: string; text: string }, tab = 'journal', selectedItem = '', hintText = '', hintLevel = 0) {
@@ -175,7 +228,7 @@ export class GameUI {
       body = `<div class="map-container" tabindex="0" role="region" aria-label="Scrollable expedition map"><svg class="world-map" viewBox="0 0 ${mapWidth} ${mapHeight}" style="min-width:${mapWidth}px;height:${mapHeight}px;max-height:none" role="img" aria-label="Map of the places you have discovered"><g class="map-lines">${lines}</g>${nodes}</svg></div><div class="map-footer"><p><span id="map-guidance">${this.touchMode ? 'Drag to explore the map.' : 'Scroll to explore the map.'}</span> <span class="gold">◇</span> Your position</p><div><span>RETURN TO A SAFE PLACE</span>${camps.map(id => `<button data-action="camp:${id}">${escapeHtml(rooms[id].name)}</button>`).join('') || '<small>Discover a rest site to unlock travel.</small>'}</div></div>`;
     } else {
       const owned = state.inventory.filter(id => items[id]); const selected = items[selectedItem] ?? items[owned[0]];
-      body = `<div class="satchel-content"><div class="item-list">${owned.map(id => `<button data-action="inspect:${escapeHtml(id)}" class="${selected?.id === id ? 'selected' : ''}"><span class="item-glyph">${items[id].treasure ? '◇' : '·'}</span><span>${escapeHtml(items[id].name)}</span>${items[id].treasure ? '<small>TREASURE</small>' : ''}</button>`).join('') || '<p>Your satchel is empty. The mailbox seems like a reasonable place to begin.</p>'}</div><div class="item-description">${selected ? `<span class="eyebrow">${selected.treasure ? 'TREASURE OF THE EMPIRE' : 'IN YOUR SATCHEL'}</span><div class="item-seal">${selected.treasure ? '◇' : icon}</div><h3>${escapeHtml(selected.name)}</h3><p>${escapeHtml(selected.description)}</p><small>Useful items are offered automatically when you examine the right place.</small>` : '<span class="empty-satchel">An adventure begins with empty pockets.</span>'}</div></div>`;
+      body = `<div class="satchel-content"><div class="item-list">${owned.map(id => `<button data-action="inspect:${escapeHtml(id)}" class="${selected?.id === id ? 'selected' : ''}"><span class="item-glyph">${items[id].treasure ? '◇' : '·'}</span><span>${escapeHtml(items[id].name)}</span>${items[id].treasure ? '<small>TREASURE</small>' : ''}</button>`).join('') || '<p>Your satchel is empty. The mailbox seems like a reasonable place to begin.</p>'}</div><div class="item-description">${selected ? `<span class="eyebrow">${selected.treasure ? 'TREASURE OF THE EMPIRE' : 'IN YOUR SATCHEL'}</span><div class="item-seal">${selected.treasure ? '◇' : icon}</div><h3>${escapeHtml(selected.name)}</h3><p>${escapeHtml(selected.description)}</p><small>Examine a place or creature to choose an item to use there.</small>` : '<span class="empty-satchel">An adventure begins with empty pockets.</span>'}</div></div>`;
     }
     this.open(tab, tabs + body, 'The expedition');
     if (tab === 'map') requestAnimationFrame(() => {
