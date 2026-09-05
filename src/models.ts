@@ -670,17 +670,64 @@ export function makeProp(type: string, materials: Materials = {}): THREE.Group {
       for (const x of [-.21, 0, .21]) { spike(result, crystal, [[x, 1.29, 0], [x, x ? 1.53 : 1.68, 0]], .047, 6); torus(result, silver, .038, .004, [x, 1.3, 0], [Math.PI / 2, 0, 0]); }
       mesh(result, new THREE.OctahedronGeometry(.053), crystal, [0, 1.12, .03]); break;
     }
-    case 'coffin': case 'tomb': {
-      const isTomb = type === 'tomb', material = isTomb ? p.stone : p.gold;
+    case 'coffin': {
       const outline: [number, number][] = [[-.23, -.88], [.23, -.88], [.38, .35], [.27, .78], [-.27, .78], [-.38, .35]];
-      plate(result, material, outline, isTomb ? .6 : .35, [0, isTomb ? .34 : .2, 0], [-Math.PI / 2, 0, 0], .03);
+      const cavity = outline.map(([x, y]): [number, number] => [x * .77, y * .91]);
+      const innerGold = mat(materials, 'coffinInteriorBrass', '#856833', .69, .66, { normalScale: new THREE.Vector2(.12, .12) });
       const lapis = mat(materials, 'coffinLapis', '#214d68', .39, .16);
-      plate(result, isTomb ? p.darkIron : p.brass, outline.map(([x, y]) => [x * .87, y * .93]), .022, [0, isTomb ? .664 : .388, 0], [-Math.PI / 2, 0, 0], .013);
-      const ornament = group(result, 0, isTomb ? .68 : .412, -.16); ornament.rotation.x = -Math.PI / 2; skull(ornament, isTomb ? p : { ...p, bone: p.gold, black: lapis }, [0, -.15, 0], .65);
-      if (!isTomb) {
-        for (let i = 0; i < 6; i++) box(result, i % 2 ? p.gold : lapis, [.34 - i * .014, .005, .025], [0, .408, .08 + i * .086]);
-        for (const x of [-.145, .145]) box(result, p.gold, [.01, .006, .505], [x, .41, .288]);
+      const rim = (outer: [number, number][], inner: [number, number][], depth: number, y: number, material: THREE.MeshStandardMaterial, bevel: number) => {
+        const shape = new THREE.Shape(); outer.forEach(([x, z], i) => i ? shape.lineTo(x, z) : shape.moveTo(x, z)); shape.closePath();
+        const hole = new THREE.Path(); [...inner].reverse().forEach(([x, z], i) => i ? hole.lineTo(x, z) : hole.moveTo(x, z)); hole.closePath(); shape.holes.push(hole);
+        const geometry = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: bevel > 0, bevelSize: bevel, bevelThickness: bevel, bevelSegments: 2, steps: 1 });
+        geometry.translate(0, 0, -depth / 2); mesh(result, geometry, material, [0, y, 0], undefined, [-Math.PI / 2, 0, 0]);
+      };
+
+      // A continuous gold shell surrounds an open well; the floor is below its rim.
+      rim(outline, cavity, .3, .175, p.gold, .03);
+      plate(result, p.gold, outline, .048, [0, .029, 0], [-Math.PI / 2, 0, 0], .01);
+      plate(result, innerGold, cavity, .014, [0, .073, 0], [-Math.PI / 2, 0, 0], .003);
+      rim(outline.map(([x, z]) => [x * .95, z * .973]), cavity, .015, .357, p.brass, .004);
+      // Darker chased lining makes the depth legible beneath the polished lip.
+      const liningEdge = cavity.map((point, i) => {
+        const current = new THREE.Vector2(...point), previous = new THREE.Vector2(...cavity[(i + cavity.length - 1) % cavity.length]), next = new THREE.Vector2(...cavity[(i + 1) % cavity.length]);
+        const before = current.clone().sub(previous).normalize(), after = next.sub(current).normalize();
+        const normalBefore = new THREE.Vector2(-before.y, before.x), normalAfter = new THREE.Vector2(-after.y, after.x);
+        return current.add(normalBefore.clone().add(normalAfter).multiplyScalar(.0308 / (1 + normalBefore.dot(normalAfter)))).toArray();
+      });
+      const lining: number[] = [], uv: number[] = [];
+      for (let i = 0; i < cavity.length; i++) {
+        const a = liningEdge[i], b = liningEdge[(i + 1) % liningEdge.length];
+        lining.push(a[0], .083, -a[1], a[0], .333, -a[1], b[0], .083, -b[1], b[0], .083, -b[1], a[0], .333, -a[1], b[0], .333, -b[1]);
+        uv.push(0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1);
       }
+      const liningGeometry = new THREE.BufferGeometry();
+      liningGeometry.setAttribute('position', new THREE.Float32BufferAttribute(lining, 3));
+      liningGeometry.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); liningGeometry.computeVertexNormals();
+      mesh(result, liningGeometry, innerGold);
+
+      const lid = group(result); lid.name = 'coffin-lid'; lid.userData.articulated = true;
+      lid.userData.closedPosition = [0, 0, 0];
+      lid.userData.openPosition = [.83, -.31, .06];
+      lid.userData.liftPosition = [.83, .06, .06];
+      plate(lid, p.brass, outline.map(([x, y]) => [x * .87, y * .93]), .022, [0, .388, 0], [-Math.PI / 2, 0, 0], .013);
+      // Recessed runners seat the heavy lid on the stone when it is slid aside.
+      for (const x of [-.14, .14]) box(lid, p.gold, [.035, .04, 1.17], [x, .345, .06]);
+      const ornament = group(lid, 0, .412, -.16); ornament.rotation.x = -Math.PI / 2;
+      skull(ornament, { ...p, bone: p.gold, black: lapis }, [0, -.15, 0], .65);
+      for (let i = 0; i < 6; i++) box(lid, i % 2 ? p.gold : lapis, [.34 - i * .014, .005, .025], [0, .408, .08 + i * .086]);
+      for (const x of [-.145, .145]) box(lid, p.gold, [.01, .006, .505], [x, .41, .288]);
+      bake(lid);
+      result.userData.cavityFloor = .083;
+      result.userData.contentsPosition = [0, .216, .47];
+      result.userData.contentsRotation = [-Math.PI / 2, 0, 0];
+      for (const x of [-.37, .37]) for (const z of [-.42, .28]) torus(result, p.brass, .065, .013, [x, .24, z], [0, Math.PI / 2, 0]);
+      break;
+    }
+    case 'tomb': {
+      const outline: [number, number][] = [[-.23, -.88], [.23, -.88], [.38, .35], [.27, .78], [-.27, .78], [-.38, .35]];
+      plate(result, p.stone, outline, .6, [0, .34, 0], [-Math.PI / 2, 0, 0], .03);
+      plate(result, p.darkIron, outline.map(([x, y]) => [x * .87, y * .93]), .022, [0, .664, 0], [-Math.PI / 2, 0, 0], .013);
+      const ornament = group(result, 0, .68, -.16); ornament.rotation.x = -Math.PI / 2; skull(ornament, p, [0, -.15, 0], .65);
       for (const x of [-.37, .37]) for (const z of [-.42, .28]) torus(result, p.brass, .065, .013, [x, .24, z], [0, Math.PI / 2, 0]);
       break;
     }
@@ -1238,10 +1285,10 @@ export function makeProp(type: string, materials: Materials = {}): THREE.Group {
       break;
     }
     case 'bat': {
-      const fur = mat(materials, 'roostBatSkin', '#423832', .94, 0, { normalScale: new THREE.Vector2(.32, .32) });
-      const membrane = mat(materials, 'roostBatWingLeather', '#352a29', .87, 0, { side: THREE.DoubleSide, normalScale: new THREE.Vector2(.13, .13) });
-      const ribs = mat(materials, 'roostBatLimbSkin', '#695447', .91, 0, { normalScale: new THREE.Vector2(.18, .18) });
-      const earSkin = mat(materials, 'roostBatEarSkin', '#533833', .96, 0, { side: THREE.DoubleSide, normalScale: new THREE.Vector2(.14, .14) });
+      const fur = mat(materials, 'roostBatSkin', '#39332f', .94, 0, { normalScale: new THREE.Vector2(.32, .32) });
+      const membrane = mat(materials, 'roostBatWingLeather', '#725541', .9, 0, { side: THREE.DoubleSide, vertexColors: true, normalScale: new THREE.Vector2(.16, .16) });
+      const ribs = mat(materials, 'roostBatLimbSkin', '#594b40', .91, 0, { normalScale: new THREE.Vector2(.18, .18) });
+      const earSkin = mat(materials, 'roostBatEarSkin', '#7b5548', .96, 0, { side: THREE.DoubleSide, normalScale: new THREE.Vector2(.14, .14) });
       const horn = mat(materials, 'roostBatClawBone', '#938973', .8, 0);
       const eyes = mat(materials, 'roostBatEyes', '#231b14', .25, 0, { emissiveIntensity: 0, normalScale: new THREE.Vector2(0, 0) });
       const bat = group(result, 0, 4.25, 0); bat.name = 'roost-bat'; bat.userData.articulated = true;
@@ -1261,7 +1308,7 @@ export function makeProp(type: string, materials: Materials = {}): THREE.Group {
           spike(body, fur, [[side * .157, y, .028], [side * .21, y - .073, .044], [side * .192, y - .132, .046]], .02, 5);
         }
       }
-      plate(body, membrane, [[-.09, -.23], [0, -.088], [.09, -.23], [0, -.36]], .008, [0, 0, -.048], undefined, .002);
+      plate(body, fur, [[-.09, -.23], [0, -.088], [.09, -.23], [0, -.36]], .008, [0, 0, -.048], undefined, .002);
 
       // The rolled head makes the upside-down animal distinct from a perched bird.
       const face = group(body, 0, -1.285, .029); face.rotation.z = Math.PI;
@@ -1285,20 +1332,22 @@ export function makeProp(type: string, materials: Materials = {}): THREE.Group {
         const wing = group(bat, side * .175, -.935, -.018);
         wing.name = side < 0 ? 'roost-bat-wing-left' : 'roost-bat-wing-right';
         wing.userData.articulated = true;
-        const wrist = new THREE.Vector3(side * .215, .53, .035);
-        const edge = [new THREE.Vector3(side * .345, .23, -.025), new THREE.Vector3(side * .50, -.36, .095), new THREE.Vector3(side * .365, -.64, .165), new THREE.Vector3(side * .14, -.61, .195), new THREE.Vector3(side * .035, -.22, .146), new THREE.Vector3(0, 0, .005)];
-        const positions: number[] = [], uvs: number[] = [], indices: number[] = [], steps = 7;
+        const wrist = new THREE.Vector3(side * .285, .58, .055);
+        const edge = [new THREE.Vector3(side * .205, .23, -.015), new THREE.Vector3(side * .495, .27, .025), new THREE.Vector3(side * .415, -.37, .11), new THREE.Vector3(side * .245, -.69, .17), new THREE.Vector3(side * .07, -.52, .185), new THREE.Vector3(0, -.02, .01)];
+        const positions: number[] = [], uvs: number[] = [], colors: number[] = [], indices: number[] = [], steps = 10;
         // Fan panels bow between elongated fingers and their scalloped lower edges.
         for (let panel = 0; panel < edge.length - 1; panel++) {
           const first = edge[panel], last = edge[panel + 1], control = first.clone().lerp(last, .5);
-          if (panel > 0 && panel < 4) control.lerp(wrist, .24);
+          if (panel > 0 && panel < 4) control.lerp(wrist, .37);
           const base = positions.length / 3;
           for (let row = 0; row <= steps; row++) for (let col = 0; col <= row; col++) {
             const t = row / steps, u = row ? col / row : .5;
             const border = first.clone().multiplyScalar((1 - u) ** 2).addScaledVector(control, 2 * (1 - u) * u).addScaledVector(last, u * u);
             const point = wrist.clone().lerp(border, t);
-            point.z += Math.sin(t * Math.PI) * Math.sin(u * Math.PI) * .044;
+            point.z += Math.sin(t * Math.PI) * Math.sin(u * Math.PI) * .07;
             positions.push(point.x, point.y, point.z); uvs.push((point.x * side + .03) / .6, (point.y + .66) / 1.2);
+            const shade = .77 + .23 * Math.sin(t * Math.PI) + .08 * Math.sin(u * Math.PI);
+            colors.push(shade, shade, shade);
             if (row === steps) continue;
             const current = base + row * (row + 1) / 2 + col, next = base + (row + 1) * (row + 2) / 2 + col;
             if (side > 0) indices.push(current, next + 1, next); else indices.push(current, next, next + 1);
@@ -1306,15 +1355,15 @@ export function makeProp(type: string, materials: Materials = {}): THREE.Group {
           }
         }
         const web = new THREE.BufferGeometry();
-        web.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3)); web.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2)); web.setIndex(indices); web.computeVertexNormals();
+        web.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3)); web.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2)); web.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3)); web.setIndex(indices); web.computeVertexNormals();
         mesh(wing, web, membrane);
-        path(wing, ribs, [[0, 0, 0], [side * .345, .23, -.025], wrist.toArray() as V3], .025, 7, 14);
+        path(wing, ribs, [[0, 0, 0], [side * .205, .23, -.015], wrist.toArray() as V3], .029, 7, 14);
         sphere(wing, fur, [.041, .047, .035], wrist.toArray() as V3, undefined, 14);
         for (let finger = 1; finger < edge.length; finger++) {
           const tip = edge[finger], middle = wrist.clone().lerp(tip, .52); middle.z += .018;
-          path(wing, ribs, [wrist.toArray() as V3, middle.toArray() as V3, tip.toArray() as V3], finger === 1 ? .014 : .009, 5, 11);
+          path(wing, ribs, [wrist.toArray() as V3, middle.toArray() as V3, tip.toArray() as V3], finger === 1 ? .012 : .007, 5, 11);
         }
-        spike(wing, horn, [[side * .215, .53, .035], [side * .256, .637, .057], [side * .293, .625, .116]], .019, 5);
+        spike(wing, horn, [[side * .285, .58, .055], [side * .316, .671, .072], [side * .35, .638, .122]], .016, 5);
         bake(wing);
       }
       break;

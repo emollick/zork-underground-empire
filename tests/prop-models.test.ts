@@ -9,6 +9,7 @@ import { ITEMS, ROOMS, TREASURES } from '../src/campaign.ts';
 import { createGame } from '../src/game.ts';
 import { houseExterior, isHouseGrounds } from '../src/scene-layout.ts';
 import { makeProp } from '../src/models.ts';
+import { placeCoffinContents } from '../src/coffin-pose.ts';
 
 const sourceRoot = fileURLToPath(new URL('../src/', import.meta.url));
 const sources = fs.readdirSync(sourceRoot).filter(name => name.endsWith('.ts')).map(name =>
@@ -175,8 +176,8 @@ function collectRuntimeSelections() {
     return group;
   };
   const architectureNotNeeded = () => { throw new Error('This prop-selection test must not construct a renderer or architecture'); };
-  const run = new Function('THREE', 'captureProp', 'isHouseGrounds', 'houseExterior', 'buildWorld', 'buildHouseExterior', 'TREASURES', `return ${refreshJavaScript}`)
-    (THREE, captureProp, isHouseGrounds, houseExterior, architectureNotNeeded, architectureNotNeeded, TREASURES);
+  const run = new Function('THREE', 'captureProp', 'isHouseGrounds', 'houseExterior', 'buildWorld', 'buildHouseExterior', 'TREASURES', 'placeCoffinContents', `return ${refreshJavaScript}`)
+    (THREE, captureProp, isHouseGrounds, houseExterior, architectureNotNeeded, architectureNotNeeded, TREASURES, placeCoffinContents);
   const makeView = (room: typeof ROOMS[string], worldRoom: typeof ROOMS[string]) => ({
     room, worldRoom, objects: new Map(), environment: new THREE.Group(), materials: {},
     architecture: undefined, architectureState: '', structuralState: () => '',

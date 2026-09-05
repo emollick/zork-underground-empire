@@ -366,7 +366,7 @@ export function interact(state: GameState, objectId: string, choice?: string): A
         state.flags.coffin_open = true;
         return ok('The lid slides back. Inside rests a sceptre, its enamel arranged in the colors of a rainbow. Lift it from the cradle before moving the coffin.', 'The king’s sceptre', 'reveal');
       }
-      if (!ownsItem(state, 'sceptre')) return no('Take the sceptre beside the open coffin first. It deserves a better journey than being rattled against the lid.');
+      if (!ownsItem(state, 'sceptre')) return no('Take the sceptre from inside the open coffin first. It deserves a better journey than being rattled against the lid.');
       return take(state, 'coffin');
     case 'mirror':
       if (state.flags.mirror_awakened) {
@@ -415,12 +415,12 @@ export function interact(state: GameState, objectId: string, choice?: string): A
       return ok('You raise the garlic. The vampire bat withdraws to the highest part of the cavern with a thoroughly offended squeal.', 'Kitchen wisdom', 'solve');
     }
     case 'gas': {
-      if (state.flags.gas_safe) return ok('You have found the clear air along the wall. The passage is within reach.', 'The gas passage', 'inspect');
-      const selection = useItem(state, choice, 'lantern', object.label, 'The air smells sharply of gas. The passage disappears into darkness.', ['use:torch', 'use:candles', 'use:matches'].includes(choice ?? '') ? 'You keep the flame away from the gas. That would be a very poor idea.' : 'That does not help you find a safe way through the gas.');
+      if (state.flags.gas_safe) return ok('Clear air hugs the wall of the side working. Your way along it is clear.', object.label, 'inspect');
+      const selection = useItem(state, choice, 'lantern', object.label, 'The air smells strongly of coal gas. A warning forbids exposed flames. The timbered working recedes into darkness.', ['use:torch', 'use:candles', 'use:matches'].includes(choice ?? '') ? 'You keep the flame away from the gas. That would be a very poor idea.' : 'That does not help you find a safe way through the gas.');
       if (selection) return selection;
-      if (!state.lantern) return no('The lantern is dark. Light it before trying the passage.', 'The gas passage');
+      if (!state.lantern) return no('The lantern is dark. Light it before trying the side working.', object.label);
       state.flags.gas_safe = true;
-      return ok('You check the lantern’s sealed shutter and follow the low, clear air along the wall. The sapphire bracelet is safely within reach.', 'A safer light', 'solve');
+      return ok('You check the lantern’s sealed shutter. Clear air hugs the wall; something glints farther along the working.', 'A safer light', 'solve');
     }
     case 'basket': return basket(state, choice);
     case 'basket_retrieve':
@@ -537,7 +537,10 @@ export function objective(state: GameState): { title: string; text: string } {
   if (r === 'loud_room') return { title: 'The Loud Room', text: state.flags.echo_solved ? 'The acoustics of the room have changed subtly.' : 'The room is deafeningly loud with an undetermined rushing sound.' };
   if (['dam', 'maintenance'].includes(r)) return { title: state.flags.reservoir_drained ? 'What the water kept' : state.flags.dam_leak ? 'A leak' : 'Flood Control Dam #3', text: state.flags.reservoir_drained ? 'The water level behind the dam is low.' : state.flags.dam_leak ? 'Water is escaping from a damaged pipe.' : state.flags.controls_enabled ? 'The green plastic bubble is glowing serenely.' : 'An abandoned machine, and controls which still seem serviceable.' };
   if (r === 'bat_cavern' && !state.flags.bat_quiet) return { title: 'An unwelcome host', text: 'A large vampire bat hangs from the ceiling.' };
-  if (r === 'coal_mine') return { title: state.flags.basket_lowered ? 'A load below' : 'The mine shaft', text: state.flags.basket_lowered ? 'The chain disappears into the lower workings.' : 'An iron chain and a narrow passage lead toward the lower workings.' };
+  if (r === 'coal_mine') {
+    if (!state.flags.gas_safe) return { title: 'Coal gas', text: 'The air smells strongly of coal gas. A timbered side working lies to the east.' };
+    return { title: state.flags.basket_lowered ? 'A load below' : 'The mine shaft', text: state.flags.basket_lowered ? 'The chain disappears into the lower workings.' : 'An iron chain lowers freight through the shaft. A separate passage leads north to the mill.' };
+  }
   if (r === 'machine_room') return { title: 'The machine', text: state.flags.diamond_created ? ownsItem(state, 'diamond') ? 'The machine has stopped. Its tray is empty.' : 'The machine has stopped. Something remains in the tray.' : !state.flags.basket_retrieved ? 'The freight basket has arrived beside the machine.' : !state.flags.machine_loaded ? state.flags.machine_closed ? 'The chamber is empty. Its lid is closed.' : 'The chamber is empty.' : !state.flags.machine_closed ? 'The chamber contains coal. The lid is still open.' : 'The lid is closed. A very narrow switch is labelled “START”.' };
   if (r === 'dam_base') return { title: 'The Frigid River', text: state.flags.boat_ready ? 'The boat is inflated. The river flows quietly here.' : 'There is a folded pile of plastic here which has a small valve attached.' };
   if (r === 'river') return { title: 'Before the falls', text: state.flags.river_moored ? 'You have reached the sheltered shore.' : 'The river is running faster here. The sound ahead is that of rushing water.' };
@@ -624,7 +627,7 @@ export function hints(state: GameState): string[] {
       : ['What made the two grooves across the wooden railing?', 'The old fibers are hemp. The railing would bear considerable weight.', 'Bring the coil of rope from the attic and use it at the wooden railing.'];
     case 'egypt':
       if (!state.flags.coffin_open) return ['How firmly is the coffin sealed?', 'A coffin is a container as well as a valuable object.', 'Examine the gold coffin to open it. Take what is inside, then examine it again to lift the coffin itself.'];
-      if (!ownsItem(state, 'sceptre')) return ['Something ornamented lies beside the open coffin.', 'The colored enamel has survived better than the tomb’s paintings.', 'Take the Egyptian sceptre beside the coffin.'];
+      if (!ownsItem(state, 'sceptre')) return ['Something ornamented lies inside the open coffin.', 'The colored enamel has survived better than the tomb’s paintings.', 'Take the Egyptian sceptre from inside the coffin.'];
       if (!ownsItem(state, 'coffin')) return ['The empty coffin is still made of solid gold.', 'Its contents are not the only treasure here.', 'Examine the opened coffin again to lift it.'];
       return ['The tomb has yielded its treasures.', 'Its western passage returns to the temple.', 'Return west to the temple. Keep the sceptre’s colored enamel in mind.'];
     case 'temple':
@@ -665,8 +668,8 @@ export function hints(state: GameState): string[] {
         ? ['The bat is no longer attending to the passage.', 'The route beneath its roost leads into the coal mine.', 'Take the northern passage into the mine.']
         : ['Something remains beneath the bat’s roost.', 'The little figure is carved from jade.', 'Take the jade figurine, then enter the coal mine.'];
     case 'coal_mine':
-      if (!state.flags.gas_safe) return ['The air smells strongly of coal gas.', 'An exposed flame would be unwise. A closed lantern is another matter.', 'Keep your brass lantern on, examine the gas passage and choose the lantern from your satchel.'];
-      if (!ownsItem(state, 'bracelet')) return ['There is a glint in the gas passage.', 'Blue stones show through the dark.', 'Take the sapphire-encrusted bracelet from the passage.'];
+      if (!state.flags.gas_safe) return ['The air smells strongly of coal gas.', 'The warning singles out exposed flames.', 'Keep your brass lantern on, examine the gas-filled side working to the east and choose the lantern from your satchel.'];
+      if (!ownsItem(state, 'bracelet')) return ['There is a glint farther along the side working.', 'Blue stones show through the dark.', 'Follow the timbered side working to the sapphire-encrusted bracelet.'];
       if (!state.flags.basket_lowered) return ['The chain and the narrow passage were built for different sorts of traffic.', 'The freight manifest separates the mill’s equipment from its operator.', 'Load coal, the screwdriver and the ivory torch into the shaft basket. Coal is here; the screwdriver is in Maintenance; the torch is below the dome. Borrow the torch from the case if you deposited it.'];
       if (!state.flags.basket_retrieved) return ['The loaded basket has descended out of sight.', 'Your cargo is below, not in your satchel.', 'Follow the lower-mill passage and retrieve the cargo from the lowered basket.'];
       return state.flags.diamond_created

@@ -1982,7 +1982,7 @@ class Builder {
     for (let z = -this.z; z < this.z; z += .85) this.box(0, .018, z, 2.35, .06, .18, this.mat.darkWood, true);
     for (let i = 0; i < 13; i++) {
       const x = (i % 2 ? 1 : -1) * this.rand(this.x - 2.1, this.x - .8), z = this.rand(-this.z + 1, this.z - 1);
-      if (!this.nearRoute(x, z, 2)) this.crystal(x, .1, z, this.rand(.6, 1.4), gas ? '#849f62' : '#6793ab');
+      if (!this.nearRoute(x, z, 2)) this.crystal(x, .1, z, this.rand(.6, 1.4), gas ? '#66797b' : '#6793ab');
     }
     const x = this.x - 2.4, z = this.z * .45;
     if (!this.nearRoute(x, z, 2.5)) {
@@ -1992,7 +1992,7 @@ class Builder {
       for (let i = 0; i < 12; i++) this.rock(x + this.rand(-.6, .6), 1.15, z + this.rand(-.85, .85), .3, .28, .35, this.mat.charcoal);
       this.collision(x, z, 1.9, 2.4);
     }
-    if (gas) { this.mist(-3, 1.1, 2, 10, '#97a86c', .2); this.mist(4, 1.9, -5, 12, '#6e8051', .21); this.torch(-this.x + 1, 3.4, 0, '#abbf78', 11); }
+    if (gas) this.mineSideWorking();
     else { this.torch(-this.x + 1.1, 3.2, 0, '#dba960', 21); this.torch(this.x - 1.1, 3.2, -this.z + 3, '#7caaa7', 15); }
     if (bat) {
       // The roost joins two existing roof beams. Its underside meets the bat's
@@ -2003,14 +2003,114 @@ class Builder {
         this.box(0, 4.43, z, .32, .12, .3, this.mat.rust);
         this.box(0, 5.4, z, .31, .13, .52, this.mat.rust);
       }
-      const swarm = new THREE.Group(); swarm.position.set(0, 9.5, -2);
+      // A few small folded silhouettes actually hang beneath roof timbers.
+      // Consume the old swarm's three draws per iteration so later obstacle
+      // generation retains its published sequence, even for omitted bats.
+      const smallRoosts = [[-6.2, -11.4], [6.6, -6.8], [-8.4, 7], [9.2, 2.4]];
+      const folded = new THREE.Shape();
+      folded.moveTo(0, -.04); folded.quadraticCurveTo(-.17, .04, -.3, -.12);
+      folded.quadraticCurveTo(-.36, -.34, -.2, -.57); folded.quadraticCurveTo(-.13, -.49, -.08, -.56);
+      folded.lineTo(0, -.62); folded.lineTo(.08, -.56); folded.quadraticCurveTo(.13, -.49, .2, -.57);
+      folded.quadraticCurveTo(.36, -.34, .3, -.12); folded.quadraticCurveTo(.17, .04, 0, -.04);
+      const foldedGeometry = new THREE.ShapeGeometry(folded, 7), foldedMaterial = this.mat.charcoal.clone();
+      foldedMaterial.color.set('#272222'); foldedMaterial.side = THREE.DoubleSide;
       for (let i = 0; i < 32; i++) {
-        const batObj = new THREE.Group(), a = this.rand(0, Math.PI * 2), r = this.rand(1, this.x * .7); batObj.position.set(Math.cos(a) * r, this.rand(-2, 3), Math.sin(a) * r);
-        for (const s of [-1, 1]) { const wing = new THREE.Mesh(new THREE.ConeGeometry(.18, .5, 3), this.mat.charcoal); wing.rotation.z = s * Math.PI / 2.3; wing.position.x = s * .2; batObj.add(wing); }
-        swarm.add(batObj);
+        const angle = this.rand(0, Math.PI * 2), radius = this.rand(1, this.x * .7), height = this.rand(-2, 3);
+        if (i >= smallRoosts.length) continue;
+        const [x, z] = smallRoosts[i], scale = .76 + radius / this.x * .22, top = 5.4;
+        this.batch(foldedGeometry, foldedMaterial, [x, top, z], [scale, scale, scale], [0, angle, 0], false);
+        this.batch(SMALLROCK, this.mat.charcoal, [x, top - .28 * scale, z], [.085 * scale, .25 * scale, .07 * scale], [0, angle, 0], false);
+        this.batch(SMALLROCK, this.mat.charcoal, [x, top - .53 * scale, z], [.084 * scale, .075 * scale, .076 * scale], [0, angle, 0], false);
+        for (const side of [-1, 1]) this.batch(CONE, this.mat.charcoal, [x + side * .052 * scale, top - .615 * scale, z], [.035 * scale, .105 * scale, .025 * scale], [Math.PI, angle, side * .18], false);
+        // The original elevation draw remains consumed above, not reused to
+        // levitate a roost. It only varies the short hook between foot and wood.
+        this.box(x, top + .018, z, .023, .05 + (height + 2) * .004, .035, this.mat.metal);
       }
-      this.group.add(swarm); this.animated.push({ object: swarm, kind: 'wheel' });
+      const reveal = new THREE.PointLight('#c1b6a0', 10, 8, 2);
+      reveal.name = 'bat-roost-carried-light-reveal'; reveal.userData.carriedLightReveal = true;
+      reveal.position.set(-1.6, 3.75, -1.8); this.group.add(reveal); this.lights.push(reveal);
     }
+  }
+  mineNotice(kind: 'gas' | 'freight' | 'mill', x: number, y: number, z: number, width: number, height: number) {
+    const canvas = document.createElement('canvas'); canvas.width = 768; canvas.height = 192;
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = '#332e26'; ctx.fillRect(0, 0, 768, 192);
+    ctx.strokeStyle = '#9b8a60'; ctx.lineWidth = 5; ctx.strokeRect(9, 9, 750, 174);
+    ctx.textBaseline = 'middle'; ctx.fillStyle = '#d0c29a';
+    if (kind === 'gas') {
+      ctx.font = 'bold 77px Georgia'; ctx.fillText('COAL GAS', 226, 75);
+      ctx.font = '36px Georgia'; ctx.fillText('SIDE WORKING', 230, 134);
+      ctx.beginPath(); ctx.moveTo(113, 149); ctx.bezierCurveTo(67, 146, 68, 108, 110, 50);
+      ctx.bezierCurveTo(99, 93, 143, 94, 147, 122); ctx.bezierCurveTo(151, 141, 130, 153, 113, 149); ctx.fill();
+      ctx.strokeStyle = '#a46143'; ctx.lineWidth = 13; ctx.beginPath(); ctx.arc(113, 100, 65, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(65, 50); ctx.lineTo(160, 150); ctx.stroke();
+    } else {
+      ctx.font = 'bold 74px Georgia'; ctx.textAlign = 'center';
+      ctx.fillText(kind === 'freight' ? 'FREIGHT' : 'LOWER MILL', 335, 79);
+      ctx.font = '32px Georgia'; ctx.fillText(kind === 'freight' ? 'SHAFT BASKET' : 'PERSONNEL', 335, 135);
+      ctx.lineWidth = 11; ctx.strokeStyle = '#d0c29a'; ctx.beginPath();
+      if (kind === 'freight') { ctx.moveTo(661, 45); ctx.lineTo(661, 146); ctx.moveTo(633, 117); ctx.lineTo(661, 146); ctx.lineTo(689, 117); }
+      else { ctx.moveTo(661, 145); ctx.lineTo(661, 44); ctx.moveTo(633, 73); ctx.lineTo(661, 44); ctx.lineTo(689, 73); }
+      ctx.stroke();
+    }
+    // Fixed wear marks do not consume the room's obstacle random stream.
+    ctx.fillStyle = '#332e26';
+    for (let i = 0; i < 55; i++) { const px = organic(i, 0, 117) * 768, py = organic(i, 1, 117) * 192; ctx.fillRect(px, py, 2 + organic(i, 2, 117) * 8, 1.2); }
+    const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = 4;
+    const paint = new THREE.MeshStandardMaterial({ map: texture, roughness: .96, metalness: .04 });
+    const plaque = this.mesh(new THREE.PlaneGeometry(width, height), paint, [x, y, z + .061]);
+    plaque.name = `mine-notice-${kind}`;
+    this.box(x, y, z, width + .1, height + .09, .12, this.mat.darkWood, true);
+    for (const side of [-1, 1]) {
+      this.box(x + side * width * .37, y + height / 2 + .16, z, .024, .33, .032, this.mat.metal);
+      for (const top of [-1, 1]) this.batch(CYLINDER, this.mat.rust, [x + side * (width / 2 - .07), y + top * (height / 2 - .07), z + .069], [.024, .012, .024], [Math.PI / 2, 0, 0]);
+    }
+  }
+  mineSideWorking() {
+    // Suspended timbers and flush floor details identify the gas-bearing side
+    // working without adding a wall, a collider or a new obstruction to old saves.
+    const sleeper = this.mat.darkWood.clone(); sleeper.color.set('#68583e');
+    const wornPaint = this.mat.brass.clone(); wornPaint.color.set('#9b8757'); wornPaint.roughness = .9; wornPaint.metalness = .15;
+    for (let i = 0; i < 25; i++) {
+      const z = 7.5 - i * .64;
+      this.box(10, .035, z, 3.95, .055, .56, sleeper, true);
+      this.box(10, 3.96, z, 5.05, .075, .32, this.mat.darkWood);
+    }
+    for (const x of [8.06, 11.94]) this.box(x, .07, -.18, .065, .06, 16.1, this.mat.rust);
+    for (const x of [7.6, 12.4]) this.box(x, 3.83, -.18, .2, .26, 16.45, this.mat.wood, true);
+    for (const z of [-8.8, -4.2, .4, 5]) {
+      this.box(10, 3.72, z, 5.16, .26, .34, this.mat.wood, true);
+      for (const x of [7.6, 12.4]) {
+        this.box(x, 4.7, z, .115, 1.65, .13, this.mat.metal);
+        for (const y of [3.91, 5.45]) this.box(x, y, z, .31, .13, .41, this.mat.rust);
+      }
+    }
+    this.box(10, 3.72, 6.45, 5.15, .26, .34, this.mat.wood, true);
+    this.mineNotice('gas', 10, 3.06, 5, 1.92, .48);
+    for (let i = 0; i < 9; i++) this.box(8.17 + i * .46, .073, 6.87, .16, .012, .58, wornPaint, false, -.55);
+    // Gas remains in the side working after a safe route is found. The clear
+    // low strip along its left edge is spatially distinct from the haze above.
+    for (const z of [3.7, -.7, -5.1]) {
+      const haze = new THREE.Sprite(new THREE.SpriteMaterial({ map: mistTexture, color: '#8f9274', transparent: true, opacity: .18, depthWrite: false }));
+      haze.name = 'coal-side-working-gas'; haze.position.set(10.8, 2.12, z); haze.scale.set(3.55, 2.8, 1);
+      this.group.add(haze); this.animated.push({ object: haze, kind: 'mist', baseY: 2.12 });
+    }
+    // The freight hoist hangs from existing crossbeams; only its chain descends
+    // to the already present basket. The north route is marked for personnel.
+    for (const x of [-1.65, 1.65]) {
+      this.box(x, 4.85, -1.9, .19, .26, 4.95, this.mat.metal);
+      for (const z of [-4.2, .4]) this.box(x, 5.22, z, .13, .76, .14, this.mat.metal);
+    }
+    this.box(0, 4.73, -3, 3.65, .34, .43, this.mat.metal, true);
+    this.box(0, 4.85, -.65, 3.65, .19, .26, this.mat.metal);
+    this.mesh(new THREE.TorusGeometry(.29, .064, 8, 28), this.mat.rust, [0, 4.36, -3]);
+    this.beam(new THREE.Vector3(0, 4.08, -3), new THREE.Vector3(0, 1.27, -3), .026, this.mat.metal);
+    this.mineNotice('freight', 0, 4.14, -.65, 2.45, .67);
+    this.mineNotice('mill', 0, 4.52, -17.7, 2.65, .69);
+    for (const x of [-.9805, .9805]) this.beam(new THREE.Vector3(x, 5.18, -17.7), new THREE.Vector3(x, 5.5, -18), .019, this.mat.metal);
+    const reveal = new THREE.PointLight('#bcc0a7', 5, 9, 2);
+    reveal.name = 'coal-working-carried-light-reveal'; reveal.userData.carriedLightReveal = true;
+    reveal.position.set(10, 3.1, 8.4); this.group.add(reveal); this.lights.push(reveal);
   }
   gear(x: number, y: number, z: number, radius: number, teeth = 24, active = true) {
     const g = new THREE.Group(); g.position.set(x, y, z);

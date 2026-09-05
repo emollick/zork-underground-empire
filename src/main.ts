@@ -11,6 +11,7 @@ import { loadMaterials } from './materials.ts';
 import { TouchControls, prefersTouchControls } from './touch-controls.ts';
 import { arrivalAt, houseDistrictAt, isHouseGrounds, sceneBounds, visitDistrict } from './scene-layout.ts';
 import { constrainRouteStep, routeFloorHeight } from './route-surfaces.ts';
+import { doorwayTargetScore } from './interaction-target.ts';
 import { hasLight, GRUE_DEATH, GRUE_DESCRIPTION, GRUE_WARNING, grueTiming } from './darkness.ts';
 import { ATTACK_COST, DODGE_COST, ATTACK_COOLDOWN, PARRY_STAGGER, BALANCE, resolveStrike, enemyTiming, swingConnects, swordDamage } from './combat.ts';
 import type { Difficulty } from './combat.ts';
@@ -158,16 +159,20 @@ function selectTarget() {
     if (darkTime > 4 && !hasLight(state) && !(object.action === 'grate' && state.flags.grate_open) && object.action !== 'cellar_hatch') continue;
     if (object.hiddenIf && state.flags[object.hiddenIf] || object.requires && !state.flags[object.requires]) continue;
     if (object.id === 'kitchen_window' && pos.z > -17.7) continue;
+    // The contents are the next reachable object while the opened container is occupied.
+    if (object.id === 'gold_coffin' && state.flags.coffin_open && !state.flags.picked_sceptre) continue;
     const objPos = view.objectPosition(object), dx = objPos.x - pos.x, dz = objPos.z - pos.z, distance = Math.hypot(dx, dz);
     const dot = distance < 0.4 ? 1 : (dx * forward.x + dz * forward.z) / distance;
-    if (distance < 3.6 && dot > 0.72) { const s = distance + (1 - dot) * 2.8; if (s < score) { score = s; best = { object }; } }
+    const passage = room.exits.find(exit => exit.via === object.id && ['window', 'mirror'].includes(exit.role ?? ''));
+    const s = passage ? doorwayTargetScore(passage, pos, forward)
+      : distance < 3.6 && dot > 0.72 ? distance + (1 - dot) * 2.8 : Infinity;
+    if (s < score) { score = s; best = { object }; }
   }
   for (const exit of room.exits) {
     if (exit.via) continue;
     if ((exit.to === 'barrow' || exit.requires === 'cyclops_fled') && !state.flags[exit.requires ?? 'barrow_path_open']) continue;
-    const dx = exit.position[0] - pos.x, dz = exit.position[1] - pos.z, distance = Math.hypot(dx, dz);
-    const dot = distance < 0.5 ? 1 : (dx * forward.x + dz * forward.z) / distance;
-    if (distance < 4.3 && dot > 0.68) { const s = distance + (1 - dot) * 2.5 + 0.4; if (s < score) { score = s; best = { exit }; } }
+    const s = doorwayTargetScore(exit, pos, forward);
+    if (s < score) { score = s; best = { exit }; }
   }
   target = best;
   if (best.object) {
@@ -178,6 +183,7 @@ function selectTarget() {
       : object.action === 'grate' && state.flags.grate_open ? 'Climb through the grating'
       : object.action === 'mirror' && state.flags.mirror_awakened ? 'Step through the mirror'
       : object.id === 'mailbox' && state.flags.mailbox_read ? 'Read the leaflet'
+      : object.id === 'bat_roost' && state.flags.bat_quiet ? 'Bat’s roost'
       : object.id === 'folded_boat' && state.flags.boat_ready ? 'Inflated boat' : object.label;
     const action = usablePassage ? 'Travel' : object.treasure ? 'Treasure of the empire'
       : object.action === 'take' ? 'Take'

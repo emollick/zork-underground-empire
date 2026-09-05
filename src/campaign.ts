@@ -235,14 +235,15 @@ const locations: RoomDef[] = [
     ]),
   room('bat_cavern', 'Bat Room', 'AN UNWELCOME HOST', 'bat', [2, 7], [38, 36],
     'You are in a small room whose ceiling disappears into shadow. The air is close and stale.', [
-      prop('bat_roost', 'Bat’s roost', 'bat', 0, -4, 'bat'),
+      prop('bat_roost', 'Vampire bat', 'bat', 0, -4, 'bat'),
       pickup('jade', 'jade', 8, -6, 'bat_quiet'),
       inscription('bat_scrap', 'A miner’s scrap of paper', -9, 6, '“A vampire bat. It can find a man in the dark without seeing him. Perhaps I should have paid more attention to what it smells.”'),
     ], true),
   room('coal_mine', 'Coal Mine', 'CARGO GOES ANOTHER WAY', 'gas', [2, 8], [42, 40],
     'This is a large room, in the middle of which is a small shaft descending through the floor into darkness below. Constructed over the top of the shaft is a metal framework to which a heavy iron chain is attached. The air smells strongly of coal gas.', [
       pickup('coal', 'coal', -10, -7),
-      prop('gas_notice', 'Gas passage', 'lantern', 10, 6, 'gas'),
+      // The world supplies the warning and side working; no loose lantern marker.
+      prop('gas_notice', 'Gas-filled side working', 'hatch', 10, 6, 'gas'),
       pickup('bracelet', 'bracelet', 10, -6, 'gas_safe'),
       prop('lift_basket', 'Shaft basket', 'basket', 0, -3, 'basket'),
       inscription('mine_manifest', 'The mill’s freight manifest', -11, 7, '“MILL DELIVERY: carbon sample; service tool for the narrow switch; work light. Freight by chain. Personnel by side passage.” A separate warning reads: “COAL GAS — NO EXPOSED FLAME.”'),

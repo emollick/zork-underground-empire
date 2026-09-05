@@ -11,6 +11,7 @@ import { houseExterior, isHouseGrounds } from './scene-layout.ts';
 import { routeFloorHeight } from './route-surfaces.ts';
 import { carriesLight, grueTiming, hasLight } from './darkness.ts';
 import { makeProp, makeCreature } from './models.ts';
+import { animateCoffinLid, placeCoffinContents, setCoffinOpen } from './coffin-pose.ts';
 import { makeLandscape, makeSky } from './atmosphere.ts';
 import { TREASURES } from './campaign.ts';
 import { CombatEffects } from './effects.ts';
@@ -51,6 +52,7 @@ export class GameView {
   private architectureState = '';
   private caseState = '';
   private animations: SceneAnimation[] = [];
+  private carriedLightReveals: THREE.Light[] = [];
   private motes?: THREE.Points;
   private sun = new THREE.DirectionalLight('#ffe0a6', 3.4);
   private hemisphere = new THREE.HemisphereLight('#d9ede2', '#2d382b', 1.1);
@@ -374,6 +376,7 @@ export class GameView {
     const world = isHouseGrounds(room.id) ? buildHouseExterior(this.worldRoom, this.materials, state.flags) : buildWorld(room, this.materials, state.flags);
     this.architecture = world.group; this.architectureState = this.structuralState(state);
     this.environment.add(world.group); this.colliders = world.colliders; this.animations = world.animated;
+    this.carriedLightReveals = world.lights.filter(light => light.userData.carriedLightReveal);
     for (const light of world.lights) if (!light.parent) this.environment.add(light);
     for (const light of world.lights) {
       if (room.dark) light.visible = false;
@@ -421,6 +424,7 @@ export class GameView {
       for (const geometry of oldGeometry) geometry.dispose();
       const world = isHouseGrounds(this.room.id) ? buildHouseExterior(this.worldRoom, this.materials, state.flags) : buildWorld(this.worldRoom, this.materials, state.flags);
       this.architecture = world.group; this.environment.add(world.group); this.colliders = world.colliders; this.animations = world.animated;
+      this.carriedLightReveals = world.lights.filter(light => light.userData.carriedLightReveal);
       for (const light of world.lights) { if (!light.parent) world.group.add(light); if (light instanceof THREE.PointLight) light.castShadow = false; if (this.room.dark) light.visible = false; }
       this.architectureState = structure;
     }
@@ -441,7 +445,10 @@ export class GameView {
       if (inflateBoat) { group.userData.inflating = 0; group.scale.set(0.65, 0.14, 0.65); }
       group.name = obj.id; group.position.set(...obj.position);
       group.rotation.y = obj.yaw ?? 0;
-      if (obj.treasure || ['egg', 'painting', 'bar', 'chalice', 'coins', 'trident'].includes(obj.type)) {
+      if (obj.id === 'sceptre') placeCoffinContents(group);
+      // Rest the small bracelet on the side working's timber boards.
+      if (obj.id === 'bracelet' && this.room.id === 'coal_mine') group.position.y += .065;
+      if (obj.id !== 'sceptre' && (obj.treasure || ['egg', 'painting', 'bar', 'chalice', 'coins', 'trident'].includes(obj.type))) {
         const light = new THREE.PointLight('#e9b66a', 2.8, 4.5, 1.5); light.position.set(0, 0.65, 0); group.add(light);
         const haloMaterial = new THREE.MeshBasicMaterial({ color: '#e2bd71', transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false });
         this.transparentMaterials.add(haloMaterial);
@@ -471,6 +478,7 @@ export class GameView {
   }
   objectPosition(obj: ObjectDef): THREE.Vector3 { const g = this.objects.get(obj.id); return g ? g.position : new THREE.Vector3(...obj.position); }
   private setObjectPose(group: THREE.Group, state: GameState, immediate = false) {
+    if (group.name === 'gold_coffin') setCoffinOpen(group, !!state.flags.coffin_open, immediate);
     const sash = group.getObjectByName('window-sash'), lid = group.getObjectByName('mailbox-door'), grate = group.getObjectByName('grate-lid');
     if (sash) { sash.userData.targetAngle = state.flags.window_open ? -1.45 : -0.09; if (immediate) sash.rotation.y = sash.userData.targetAngle; }
     if (lid) { lid.userData.targetAngle = state.flags.mailbox_read ? Math.PI * 0.53 : 0; if (immediate) lid.rotation.x = lid.userData.targetAngle; }
@@ -546,6 +554,7 @@ export class GameView {
     this.elapsed += dt; const t = this.elapsed;
     this.impacts.update(dt);
     for (const group of this.objects.values()) {
+      if (group.name === 'gold_coffin') animateCoffinLid(group, dt);
       const sash = group.getObjectByName('window-sash'), lid = group.getObjectByName('mailbox-door'), grate = group.getObjectByName('grate-lid');
       if (sash) sash.rotation.y = THREE.MathUtils.damp(sash.rotation.y, sash.userData.targetAngle ?? 0, 7, dt);
       if (lid) lid.rotation.x = THREE.MathUtils.damp(lid.rotation.x, lid.userData.targetAngle ?? 0, 7, dt);
@@ -581,6 +590,7 @@ export class GameView {
     this.heroFill.intensity = 0.75 * (1 - motion.darkness * 0.94);
     this.heroKey.intensity = 1.3 * (1 - motion.darkness * 0.97);
     for (const glow of this.treasureGlows) { glow.light.intensity = 2.8 * lightLevel; glow.halo.opacity = 0.2 * lightLevel; }
+    for (const light of this.carriedLightReveals) light.visible = hasLight(state);
     this.updateGrue(state, motion.darkTime, t, motion.title);
     this.renderer.toneMappingExposure = this.baseExposure;
     const bob = state.settings.motion ? Math.sin(t * 10.5) * motion.moving * 0.013 : 0;
