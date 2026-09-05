@@ -1995,6 +1995,14 @@ class Builder {
     if (gas) { this.mist(-3, 1.1, 2, 10, '#97a86c', .2); this.mist(4, 1.9, -5, 12, '#6e8051', .21); this.torch(-this.x + 1, 3.4, 0, '#abbf78', 11); }
     else { this.torch(-this.x + 1.1, 3.2, 0, '#dba960', 21); this.torch(this.x - 1.1, 3.2, -this.z + 3, '#7caaa7', 15); }
     if (bat) {
+      // The roost joins two existing roof beams. Its underside meets the bat's
+      // claws; none of these overhead timbers changes the walking space.
+      this.box(0, 4.38, -4.5, .27, .26, 4.92, this.mat.darkWood, true);
+      for (const z of [-6.8, -2.2]) {
+        this.box(0, 4.93, z, .23, 1.1, .23, this.mat.wood, true);
+        this.box(0, 4.43, z, .32, .12, .3, this.mat.rust);
+        this.box(0, 5.4, z, .31, .13, .52, this.mat.rust);
+      }
       const swarm = new THREE.Group(); swarm.position.set(0, 9.5, -2);
       for (let i = 0; i < 32; i++) {
         const batObj = new THREE.Group(), a = this.rand(0, Math.PI * 2), r = this.rand(1, this.x * .7); batObj.position.set(Math.cos(a) * r, this.rand(-2, 3), Math.sin(a) * r);
@@ -2143,6 +2151,40 @@ class Builder {
     }
     this.shaft(-2, -4, 15, '#e2d4ab', 3.6); this.mist(0, 1.6, -3, 11, '#ceba91', .14);
     this.torch(this.x - 1, 3, 1, '#dcc089', 13);
+    if (this.room.id === 'sandy_cave') this.sandDrift();
+  }
+  sandDrift() {
+    const dug = !!this.flags.scarab_revealed, rings = 24, segments = 64;
+    const vertices: number[] = [], colors: number[] = [], indices: number[] = [];
+    const vertex = (r: number, a: number) => {
+      const edge = 1 + .055 * Math.sin(a * 3 + .6) + .026 * Math.cos(a * 7);
+      const x = Math.cos(a) * r * edge * 2.3, z = Math.sin(a) * r * edge * 1.85;
+      const mound = Math.pow(1 - r * r, 2) * (.45 - x * .05 + z * .02);
+      const scoop = Math.exp(-Math.pow((x + .24) / .92, 4) - Math.pow((z - .16) / .76, 4));
+      const lip = .14 * Math.exp(-Math.pow((r - .58) / .18, 2)) * (1 - .6 * Math.max(0, Math.sin(a)));
+      const ripples = Math.sin(z * 17 + Math.sin(x * 2.3) * .8) * .013 * Math.sin(Math.PI * r);
+      const y = -.05 + (dug ? mound * (1 - scoop * .96) + lip : mound) + ripples * (dug ? 1 - scoop : 1);
+      vertices.push(x, y, z);
+      const grain = .97 + organic(x * 13, z * 13, 72) * .06;
+      const shade = grain * (dug ? 1 - scoop * .29 : 1);
+      colors.push(shade, shade, shade);
+    };
+    vertex(0, 0);
+    for (let ring = 1; ring <= rings; ring++) for (let i = 0; i < segments; i++) vertex(ring / rings, i / segments * Math.PI * 2);
+    for (let i = 0; i < segments; i++) indices.push(0, 1 + (i + 1) % segments, 1 + i);
+    for (let ring = 1; ring < rings; ring++) for (let i = 0; i < segments; i++) {
+      const a = 1 + (ring - 1) * segments + i, b = 1 + (ring - 1) * segments + (i + 1) % segments;
+      const c = a + segments, d = b + segments;
+      indices.push(a, b, c, b, d, c);
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geometry.setIndex(indices); geometry.computeVertexNormals();
+    const material = this.mat.sand.clone(); material.vertexColors = true; material.roughness = 1;
+    const drift = this.mesh(geometry, material, [0, 0, -5]);
+    drift.name = dug ? 'state:sand:dug-drift' : 'state:sand:undug-drift';
+    drift.userData.disposeMaterials = () => material.dispose();
   }
   dome() {
     this.rotunda(); const radius = Math.min(this.x, this.z) * .8;

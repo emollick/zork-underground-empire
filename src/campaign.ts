@@ -268,7 +268,7 @@ const locations: RoomDef[] = [
   room('sandy_cave', 'Sandy Cave', 'BENEATH THE DRIFT', 'sand', [5, 7], [38, 34],
     'This is a sand-filled cave. Wind has banked the sand against the walls.', [
       pickup('shovel', 'shovel', -9, 4),
-      prop('sand_drift', 'Sand drift', 'pedestal', 0, -5, 'dig'),
+      prop('sand_drift', 'Sand drift', 'surface', 0, -5, 'dig'),
       pickup('scarab', 'scarab', 7, -6, 'scarab_revealed'),
       inscription('sand_scratch', 'A scratch on the cave wall', 9, 6, 'A short mark disappears beneath the drift. Something in the sand catches the light.'),
     ]),

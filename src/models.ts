@@ -437,9 +437,10 @@ function carvedFragment(parent: THREE.Group, materials: Materials, p: ReturnType
 /** Every collectible has an authored, recognizable physical object. */
 export function makeProp(type: string, materials: Materials = {}): THREE.Group {
   const result = group(); result.name = `prop:${type}`;
+  result.userData.modelResolution = 'authored';
   const p = palette(materials);
   switch (type.toLowerCase()) {
-    case 'hatch': case 'surface': break;
+    case 'hatch': case 'surface': result.userData.modelResolution = 'external'; break;
     case 'torn_note': case 'sketch': case 'route_notes': case 'clipboard': case 'manifest': cluePaper(result, p, materials, type); break;
     case 'carved_warning': case 'axe_scars': case 'royal_relief': case 'mirror_tablet': case 'sand_marks': carvedFragment(result, materials, p, type); break;
     case 'sword': sword(result, p); break;
@@ -1236,6 +1237,88 @@ export function makeProp(type: string, materials: Materials = {}): THREE.Group {
       }
       break;
     }
+    case 'bat': {
+      const fur = mat(materials, 'roostBatSkin', '#423832', .94, 0, { normalScale: new THREE.Vector2(.32, .32) });
+      const membrane = mat(materials, 'roostBatWingLeather', '#352a29', .87, 0, { side: THREE.DoubleSide, normalScale: new THREE.Vector2(.13, .13) });
+      const ribs = mat(materials, 'roostBatLimbSkin', '#695447', .91, 0, { normalScale: new THREE.Vector2(.18, .18) });
+      const earSkin = mat(materials, 'roostBatEarSkin', '#533833', .96, 0, { side: THREE.DoubleSide, normalScale: new THREE.Vector2(.14, .14) });
+      const horn = mat(materials, 'roostBatClawBone', '#938973', .8, 0);
+      const eyes = mat(materials, 'roostBatEyes', '#231b14', .25, 0, { emissiveIntensity: 0, normalScale: new THREE.Vector2(0, 0) });
+      const bat = group(result, 0, 4.25, 0); bat.name = 'roost-bat'; bat.userData.articulated = true;
+      const body = group(bat); body.name = 'roost-bat-body';
+
+      // Feet hook over the suspended perch; the shoulders and head hang below.
+      loft(body, fur, [[-.23, .087, .085], [-.34, .14, .115], [-.56, .173, .139], [-.81, .194, .147], [-.96, .17, .126], [-1.08, .092, .091], [-1.145, .071, .07]], [0, 0, 0], .025, 20);
+      for (const side of [-1, 1]) {
+        path(body, ribs, [[side * .078, -.3, -.018], [side * .129, -.16, -.028], [side * .085, -.055, .026]], .025, 7, 11);
+        sphere(body, fur, [.048, .043, .038], [side * .091, -.083, .027], undefined, 14);
+        for (let toe = -1; toe <= 1; toe++) {
+          const x = side * .088 + toe * .021;
+          spike(body, horn, [[x, -.065, .04], [x, .031, .083], [x, .075, .018], [x, .027, -.067], [x, -.012, -.077]], .011, 5);
+        }
+        for (let tuft = 0; tuft < 4; tuft++) {
+          const y = -.47 - tuft * .13;
+          spike(body, fur, [[side * .157, y, .028], [side * .21, y - .073, .044], [side * .192, y - .132, .046]], .02, 5);
+        }
+      }
+      plate(body, membrane, [[-.09, -.23], [0, -.088], [.09, -.23], [0, -.36]], .008, [0, 0, -.048], undefined, .002);
+
+      // The rolled head makes the upside-down animal distinct from a perched bird.
+      const face = group(body, 0, -1.285, .029); face.rotation.z = Math.PI;
+      loft(face, fur, [[-.17, .052, .046], [-.12, .112, .105], [-.035, .164, .13], [.055, .159, .111], [.129, .103, .078], [.172, .036, .02]], [0, 0, 0], .023, 24);
+      for (const side of [-1, 1]) {
+        const ear = (x: number, y: number): [number, number] => [side * x, y];
+        plate(face, fur, [ear(.073, .085), ear(.188, .133), ear(.249, .365), ear(.19, .426), ear(.107, .319)], .018, [0, 0, -.006], undefined, .009);
+        plate(face, earSkin, [ear(.096, .136), ear(.164, .161), ear(.218, .353), ear(.187, .381), ear(.127, .304)], .005, [0, 0, .009], undefined, .003);
+        path(face, ribs, [[side * .101, .142, .014], [side * .15, .19, .02], [side * .19, .35, .022]], .007, 5, 10);
+        sphere(face, eyes, [.024, .012, .014], [side * .071, .024, .111], [0, side * .22, side * -.1], 16);
+        path(face, fur, [[side * .034, .035, .117], [side * .07, .048, .122], [side * .103, .035, .112]], .011, 6, 8);
+        sphere(face, ribs, [.05, .029, .041], [side * .039, -.094, .125], [0, side * .18, 0], 16);
+        spike(face, horn, [[side * .047, -.12, .151], [side * .046, -.158, .179], [side * .033, -.178, .172]], .013, 6);
+      }
+      plate(face, earSkin, [[0, .027], [-.034, -.016], [-.024, -.069], [0, -.084], [.024, -.069], [.034, -.016]], .028, [0, -.02, .123], undefined, .009);
+      for (const side of [-1, 1]) sphere(face, p.black, [.01, .006, .007], [side * .019, -.09, .161], undefined, 10);
+      path(face, p.black, [[-.069, -.124, .151], [-.032, -.136, .174], [0, -.14, .166], [.032, -.136, .174], [.069, -.124, .151]], .005, 5, 12);
+      bake(body);
+
+      for (const side of [-1, 1]) {
+        const wing = group(bat, side * .175, -.935, -.018);
+        wing.name = side < 0 ? 'roost-bat-wing-left' : 'roost-bat-wing-right';
+        wing.userData.articulated = true;
+        const wrist = new THREE.Vector3(side * .215, .53, .035);
+        const edge = [new THREE.Vector3(side * .345, .23, -.025), new THREE.Vector3(side * .50, -.36, .095), new THREE.Vector3(side * .365, -.64, .165), new THREE.Vector3(side * .14, -.61, .195), new THREE.Vector3(side * .035, -.22, .146), new THREE.Vector3(0, 0, .005)];
+        const positions: number[] = [], uvs: number[] = [], indices: number[] = [], steps = 7;
+        // Fan panels bow between elongated fingers and their scalloped lower edges.
+        for (let panel = 0; panel < edge.length - 1; panel++) {
+          const first = edge[panel], last = edge[panel + 1], control = first.clone().lerp(last, .5);
+          if (panel > 0 && panel < 4) control.lerp(wrist, .24);
+          const base = positions.length / 3;
+          for (let row = 0; row <= steps; row++) for (let col = 0; col <= row; col++) {
+            const t = row / steps, u = row ? col / row : .5;
+            const border = first.clone().multiplyScalar((1 - u) ** 2).addScaledVector(control, 2 * (1 - u) * u).addScaledVector(last, u * u);
+            const point = wrist.clone().lerp(border, t);
+            point.z += Math.sin(t * Math.PI) * Math.sin(u * Math.PI) * .044;
+            positions.push(point.x, point.y, point.z); uvs.push((point.x * side + .03) / .6, (point.y + .66) / 1.2);
+            if (row === steps) continue;
+            const current = base + row * (row + 1) / 2 + col, next = base + (row + 1) * (row + 2) / 2 + col;
+            if (side > 0) indices.push(current, next + 1, next); else indices.push(current, next, next + 1);
+            if (col < row) { if (side > 0) indices.push(current, current + 1, next + 1); else indices.push(current, next + 1, current + 1); }
+          }
+        }
+        const web = new THREE.BufferGeometry();
+        web.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3)); web.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2)); web.setIndex(indices); web.computeVertexNormals();
+        mesh(wing, web, membrane);
+        path(wing, ribs, [[0, 0, 0], [side * .345, .23, -.025], wrist.toArray() as V3], .025, 7, 14);
+        sphere(wing, fur, [.041, .047, .035], wrist.toArray() as V3, undefined, 14);
+        for (let finger = 1; finger < edge.length; finger++) {
+          const tip = edge[finger], middle = wrist.clone().lerp(tip, .52); middle.z += .018;
+          path(wing, ribs, [wrist.toArray() as V3, middle.toArray() as V3, tip.toArray() as V3], finger === 1 ? .014 : .009, 5, 11);
+        }
+        spike(wing, horn, [[side * .215, .53, .035], [side * .256, .637, .057], [side * .293, .625, .116]], .019, 5);
+        bake(wing);
+      }
+      break;
+    }
     case 'cyclops': {
       // This is the interaction target beside the animated cyclops in GameView.
       lathe(result, p.stone, [[.14, 0], [.42, .025], [.64, .13], [.76, .35], [.74, .46], [.67, .46], [.64, .31], [.49, .17], [.24, .12], [0, .12]], [0, 0, 0], undefined, 32);
@@ -1243,9 +1326,8 @@ export function makeProp(type: string, materials: Materials = {}): THREE.Group {
       break;
     }
     default: {
-      lathe(result, p.gold, [[0, 0], [.1, 0], [.14, .045], [.1, .08], [.055, .11], [.035, .22], [.001, .24]]);
-      mesh(result, new THREE.OctahedronGeometry(.092), p.gem, [0, .29, 0]);
-      for (const side of [-1, 1]) spike(result, p.gold, [[side * .033, .18, 0], [side * .098, .285, 0], [side * .04, .375, 0]], .016);
+      result.userData.modelResolution = 'missing';
+      console.error(`[Zork] Missing prop model for type: ${type}`);
       break;
     }
   }

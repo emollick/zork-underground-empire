@@ -477,6 +477,8 @@ export class GameView {
     if (grate) { grate.userData.targetAngle = state.flags.grate_open ? grate.userData.openAngle : grate.userData.closedAngle; if (immediate) grate.rotation.x = grate.userData.targetAngle; }
     const pressure = group.getObjectByName('dam-pressure-needle');
     if (pressure) pressure.rotation.z = state.flags.dam_leak || !state.flags.controls_enabled ? Math.PI * .66 : -Math.PI * .43;
+    const bat = group.getObjectByName('roost-bat');
+    if (bat) bat.visible = !state.flags.bat_quiet;
   }
   impact(kind: 'hit' | 'block' | 'parry') {
     if (!this.enemy) return;
@@ -486,6 +488,7 @@ export class GameView {
   }
   private structuralState(state: GameState): string {
     const flags = new Set(['window_open', 'trapdoor_open', 'barrow_path_open', 'reservoir_drained', 'rainbow_solid', 'dome_secured', 'hades_open', 'ritual_bell', 'ritual_candles', 'machine_loaded', 'machine_closed', 'diamond_created', 'controls_enabled', 'dam_leak']);
+    if (this.worldRoom?.id === 'sandy_cave') flags.add('scarab_revealed');
     for (const exit of this.worldRoom?.exits ?? []) if (exit.requires) flags.add(exit.requires);
     return [...flags].sort().map(key => `${key}:${state.flags[key] ? 1 : 0}`).join('|');
   }
@@ -547,6 +550,12 @@ export class GameView {
       if (sash) sash.rotation.y = THREE.MathUtils.damp(sash.rotation.y, sash.userData.targetAngle ?? 0, 7, dt);
       if (lid) lid.rotation.x = THREE.MathUtils.damp(lid.rotation.x, lid.userData.targetAngle ?? 0, 7, dt);
       if (grate) grate.rotation.x = THREE.MathUtils.damp(grate.rotation.x, grate.userData.targetAngle ?? 0, 7, dt);
+      if (group.userData.type === 'bat' && !state.flags.bat_quiet) {
+        const left = group.getObjectByName('roost-bat-wing-left'), right = group.getObjectByName('roost-bat-wing-right');
+        const breath = Math.sin(t * 1.7) * .024;
+        if (left) left.rotation.y = breath;
+        if (right) right.rotation.y = -breath;
+      }
       if (group.userData.inflating !== undefined) {
         const progress = Math.min(1, (group.userData.inflating as number) + dt / 1.1);
         const expansion = 1 - Math.pow(1 - progress, 3);
