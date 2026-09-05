@@ -3,6 +3,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import type { Collider, ExitDef, RoomDef } from './types';
 import { createWaterMaterial, createFallsMaterial, createRainbowMaterial } from './water-materials';
 import { RAINBOW_BRIDGE, rainbowHeight } from './route-surfaces';
+import { createPipeLeak } from './pipe-leak';
 
 type Mats = Record<string, THREE.MeshStandardMaterial>;
 type Animated = { object: THREE.Object3D; kind: string; baseY?: number };
@@ -2054,6 +2055,7 @@ class Builder {
       this.pipe([[x, 4, -this.z * .4], [x, 8.6, -this.z * .4], [x, 8.6, this.z - 1], [x, 1.3, this.z - 1]], .21, this.mat.brass);
       this.pipe([[s * (this.x - .8), 1.5, -this.z + 1], [s * (this.x - .8), 1.5, this.z - 2]], .4, this.mat.rust);
     }
+    if (!mill) this.maintenancePipe();
     if (mill) {
       const target = this.room.objects.find(o => o.id === 'pressure_mill')?.position ?? [0, 0, -5], x = target[0], z = target[2];
       for (const s of [-1, 1]) {
@@ -2074,6 +2076,59 @@ class Builder {
       if (completed) { this.mist(x + .7, 2.2, z - .7, 2.5, '#c3d8d4', .17); const light = new THREE.PointLight('#afdacf', 6, 6, 2); light.position.set(x, 1.8, z); this.group.add(light); this.lights.push(light); }
     }
     this.torch(-this.x + 1, 3.1, 2, '#ffc986', 22); this.torch(this.x - 1, 3.1, -2, '#86bcc3', 20); this.mist(this.x - 2, 3.5, this.z - 2, 5, '#b4c6c2', active ? .16 : .045);
+  }
+  maintenancePipe() {
+    // Keep the established repair target and collision layout so old saves resume
+    // at the same approach. This branch visibly joins the east-wall water main.
+    const target = this.room.objects.find(object => object.id === 'leaking_pipe')?.position ?? [11, 0, 4];
+    const x = target[0], z = target[2], wallX = this.x - .8;
+    const leaking = !!this.flags.dam_leak;
+    const patched = Object.prototype.hasOwnProperty.call(this.flags, 'dam_leak') && !leaking;
+    const iron = new THREE.MeshStandardMaterial({ color: '#526963', ...wornIronSurfaces(), normalScale: new THREE.Vector2(.3, .3), roughness: .68, metalness: .5 });
+    const coupling = new THREE.MeshStandardMaterial({ color: '#7d6950', ...wornIronSurfaces(), normalScale: new THREE.Vector2(.16, .16), roughness: .66, metalness: .63 });
+    const pipeMaterials: THREE.Material[] = [iron, coupling];
+    const pipework = new THREE.Group(); pipework.name = leaking ? 'state:maintenance:broken-pipe' : patched ? 'state:maintenance:patched-pipe' : 'state:maintenance:intact-pipe';
+    pipework.userData.disposeMaterials = () => { for (const material of pipeMaterials) material.dispose(); };
+    this.group.add(pipework);
+    this.pipe([[wallX, 1.5, z], [wallX - 1.4, 1.5, z], [wallX - 1.4, 3.35, z], [x, 3.35, z], [x, 1.58, z]], .205, iron);
+    this.pipe([[x, 1.31, z], [x, .12, z]], .205, iron);
+    this.cylinder(x, 1.445, z, leaking || patched ? .19 : .205, .28, iron);
+    for (const y of [1.31, 1.58]) {
+      this.cylinder(x, y, z, .32, .115, coupling);
+      for (let i = 0; i < 8; i++) {
+        const a = i * Math.PI / 4, bx = x + Math.cos(a) * .264, bz = z + Math.sin(a) * .264;
+        this.cylinder(bx, y + .077, bz, .032, .045, this.mat.metal);
+      }
+    }
+    this.cylinder(x, .07, z, .37, .14, this.mat.metal);
+    for (const s of [-1, 1]) for (const t of [-1, 1]) this.cylinder(x + s * .235, .158, z + t * .235, .036, .045, coupling);
+    for (const bx of [x + 1.05, wallX - 1.4]) {
+      this.beam(new THREE.Vector3(bx, 3.35, z), new THREE.Vector3(bx, 10.98, z), .022, this.mat.metal);
+      this.box(bx, 10.91, z, .22, .08, .22, coupling, true);
+      this.mesh(new THREE.TorusGeometry(.23, .025, 6, 20), coupling, [bx, 3.35, z], [0, Math.PI / 2, 0]);
+    }
+    if (leaking) {
+      // The jet starts at the visible dark split on the west side of the coupling.
+      this.mesh(new THREE.SphereGeometry(.065, 10, 6), this.mat.charcoal, [x - .194, 1.45, z]).scale.set(.2, .55, 1);
+      const spray = createPipeLeak(); spray.position.set(x, 1.45, z); pipework.add(spray);
+      this.animated.push({ object: spray, kind: 'pipe-leak' });
+    } else if (patched) {
+      const putty = color('#b6b6a0', .95);
+      pipeMaterials.push(putty);
+      this.cylinder(x, 1.445, z, .235, .18, putty);
+      for (const y of [1.38, 1.44, 1.51]) this.mesh(new THREE.TorusGeometry(.226, .018, 6, 24), putty, [x, y, z], [Math.PI / 2, 0, 0]);
+    }
+    if (leaking || patched) {
+      const wet = new THREE.MeshStandardMaterial({ color: '#263e3e', roughness: .16, metalness: .24, transparent: true, opacity: .63, depthWrite: false });
+      pipeMaterials.push(wet);
+      const outline = new THREE.CircleGeometry(1, 40), points = outline.attributes.position;
+      for (let i = 1; i < points.count; i++) {
+        const a = Math.atan2(points.getY(i), points.getX(i)), radius = .93 + .048 * Math.sin(a * 5) + .024 * Math.cos(a * 9);
+        points.setXYZ(i, points.getX(i) * radius, points.getY(i) * radius, 0);
+      }
+      const puddle = this.mesh(outline, wet, [x - 2.7, .016, z - .53], [-Math.PI / 2, 0, 0]);
+      puddle.scale.set(1.85, 1.13, 1); puddle.name = 'state:maintenance:wet-floor';
+    }
   }
   sand() {
     this.cavern(12, this.mat.sand); this.ground(this.mat.sand, true, -.015);

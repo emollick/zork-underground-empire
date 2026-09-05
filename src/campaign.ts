@@ -210,7 +210,7 @@ const locations: RoomDef[] = [
     ], true),
   room('dam', 'Flood Control Dam #3', 'THE EMPIRE’S GREAT MACHINE', 'dam', [3, 5], [46, 42],
     'You are standing on the top of the Flood Control Dam #3, which was quite a tourist attraction in times far distant. There is a control panel here, on which a large metal bolt is mounted. Directly above the bolt is a small green plastic bubble.', [
-      prop('dam_bolt', 'The sluice-control bolt', 'wheel', 0, -7, 'dam_bolt'),
+      prop('dam_bolt', 'The sluice-control bolt', 'dam_control', 0, -7, 'dam_bolt'),
       inscription('dam_diagram', 'Flood Control Dam #3', 12, 7, 'FCD#3 was constructed in year 783 of the Great Underground Empire to harness the mighty Frigid River. This work was supported by a grant of 37 million zorkmids from your omnipotent local tyrant Lord Dimwit Flathead the Excessive.'),
       rest('dam_fire', -12, 7),
     ]),
@@ -218,8 +218,8 @@ const locations: RoomDef[] = [
     'This is what appears to have been the maintenance room for Flood Control Dam #3. Apparently, this room has been ransacked recently, for most of the valuable equipment is gone. On the wall in front of you is a group of buttons colored blue, yellow, brown, and red.', [
       pickup('wrench', 'wrench', -9, -6), pickup('screwdriver', 'screwdriver', -3, -7),
       pickup('putty', 'bottle', 3, -7), pickup('matches', 'book', 9, -6),
-      prop('control_buttons', 'The colored control buttons', 'lever', 0, 1, 'controls'),
-      prop('leaking_pipe', 'Leaking pipe', 'wheel', 11, 4, 'patch', { requires: 'dam_leak' }),
+      prop('control_buttons', 'The colored control buttons', 'maintenance_controls', 0, 1, 'controls'),
+      prop('leaking_pipe', 'Leaking pipe', 'surface', 11, 4, 'patch', { requires: 'dam_leak' }),
       inscription('maintenance_label', 'A maintenance memorandum', -10, 6, '“Report changes at the control panel before attempting to turn the bolt.” Someone has underlined “changes” and drawn a small green circle.'),
     ]),
   room('reservoir', 'Reservoir Basin', 'WHAT THE WATER KEPT', 'reservoir', [2, 6], [46, 42],

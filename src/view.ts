@@ -414,7 +414,10 @@ export class GameView {
     if (structure !== this.architectureState && this.architecture) {
       this.environment.remove(this.architecture);
       const oldGeometry = new Set<THREE.BufferGeometry>();
-      this.architecture.traverse(node => { if (node instanceof THREE.Mesh) oldGeometry.add(node.geometry); });
+      this.architecture.traverse(node => {
+        if (node instanceof THREE.Mesh || node instanceof THREE.Points) oldGeometry.add(node.geometry);
+        node.userData.disposeMaterials?.();
+      });
       for (const geometry of oldGeometry) geometry.dispose();
       const world = isHouseGrounds(this.room.id) ? buildHouseExterior(this.worldRoom, this.materials, state.flags) : buildWorld(this.worldRoom, this.materials, state.flags);
       this.architecture = world.group; this.environment.add(world.group); this.colliders = world.colliders; this.animations = world.animated;
@@ -472,6 +475,8 @@ export class GameView {
     if (sash) { sash.userData.targetAngle = state.flags.window_open ? -1.45 : -0.09; if (immediate) sash.rotation.y = sash.userData.targetAngle; }
     if (lid) { lid.userData.targetAngle = state.flags.mailbox_read ? Math.PI * 0.53 : 0; if (immediate) lid.rotation.x = lid.userData.targetAngle; }
     if (grate) { grate.userData.targetAngle = state.flags.grate_open ? grate.userData.openAngle : grate.userData.closedAngle; if (immediate) grate.rotation.x = grate.userData.targetAngle; }
+    const pressure = group.getObjectByName('dam-pressure-needle');
+    if (pressure) pressure.rotation.z = state.flags.dam_leak || !state.flags.controls_enabled ? Math.PI * .66 : -Math.PI * .43;
   }
   impact(kind: 'hit' | 'block' | 'parry') {
     if (!this.enemy) return;
@@ -593,6 +598,7 @@ export class GameView {
         if (a.object.userData.flameHeight === undefined) a.object.userData.flameHeight = a.object.scale.y;
         a.object.scale.y = a.object.userData.flameHeight * (0.95 + Math.sin(t * 11 + a.object.id) * 0.13);
       } else if (a.kind === 'wheel' || a.kind === 'gear') a.object.rotation.z = t * 0.09;
+      else if (a.kind === 'pipe-leak') a.object.userData.animate(t);
       else if (a.kind === 'mist') {
         if (a.object.userData.mistBaseX === undefined) a.object.userData.mistBaseX = a.object.position.x;
         a.object.position.x = a.object.userData.mistBaseX + Math.sin(t * 0.08 + a.object.id) * 0.6;

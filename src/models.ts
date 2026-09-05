@@ -846,6 +846,96 @@ export function makeProp(type: string, materials: Materials = {}): THREE.Group {
       for (const x of [-.37, .37]) for (const y of [.08, 1.07]) rivets(result, p.brass, [[x, y, .317]], .024);
       break;
     }
+    case 'dam_control': {
+      const iron = mat(materials, 'damCastIron', '#414b49', .76, .59, { normalScale: new THREE.Vector2(.3, .3) });
+      const steel = mat(materials, 'damBoltSteel', '#9ca39d', .47, .79, { normalScale: new THREE.Vector2(.12, .12) });
+      const brass = mat(materials, 'damAgedBrass', '#92744b', .63, .7);
+      const oxide = mat(materials, 'damIronOxide', '#784b34', .94, .12);
+      const dial = mat(materials, 'damGaugeDial', '#c9c2a7', .9, .02, { normalScale: new THREE.Vector2(.025, .025) });
+
+      // The broad foot sits on the paving; the cast column carries the whole panel.
+      plate(result, iron, [[-.45, -.34], [.45, -.34], [.5, -.29], [.5, .29], [.45, .34], [-.45, .34], [-.5, .29], [-.5, -.29]], .084, [0, .051, -.42], [Math.PI / 2, 0, 0], .009);
+      loft(result, iron, [[.095, .32, .24], [.17, .27, .21], [.27, .215, .175], [.69, .18, .145], [.84, .27, .19], [.94, .31, .21]], [0, 0, -.43], 0, 12);
+      for (const x of [-.365, .365]) for (const z of [-.645, -.195]) {
+        cyl(result, p.darkIron, .05, .05, .012, [x, .109, z], undefined, 16);
+        cyl(result, steel, .033, .036, .036, [x, .13, z], undefined, 6);
+        cyl(result, p.darkIron, .014, .014, .009, [x, .153, z], undefined, 10);
+      }
+      for (const side of [-1, 1]) {
+        plate(result, p.darkIron, [[0, .16], [side * .19, .16], [side * .085, .49], [0, .57]], .043, [side * .19, 0, -.425], undefined, .008);
+        box(result, brass, [.035, .045, .307], [side * .197, .405, -.43]);
+      }
+      plate(result, iron, [[-.4, .73], [-.49, .84], [-.49, 1.37], [-.31, 1.73], [-.21, 1.79], [.21, 1.79], [.31, 1.73], [.49, 1.37], [.49, .84], [.4, .73]], .11, [0, 0, -.522], undefined, .016);
+      plate(result, p.darkIron, [[-.41, .81], [-.435, .89], [-.435, 1.35], [-.268, 1.674], [-.184, 1.728], [.184, 1.728], [.268, 1.674], [.435, 1.35], [.435, .89], [.41, .81]], .012, [0, 0, -.452], undefined, .006);
+      rivets(result, steel, [[-.408, .881, -.432], [.408, .881, -.432], [-.401, 1.32, -.432], [.401, 1.32, -.432], [-.196, 1.697, -.432], [.196, 1.697, -.432]], .018);
+
+      // This open bezel seats world.ts's green bubble at [0, 1.52, -.46].
+      // Its clear centre leaves both the unlit and lit lens visible from the front.
+      torus(result, brass, .159, .016, [0, 1.52, -.432], undefined, TAU, 32);
+      for (const side of [-1, 1]) rivets(result, steel, [[side * .195, 1.52, -.434]], .013);
+
+      // An exposed square drive projects toward the player below the indicator.
+      cyl(result, iron, .171, .181, .098, [0, 1.071, -.394], [Math.PI / 2, 0, 0], 20);
+      torus(result, brass, .151, .018, [0, 1.071, -.336], undefined, TAU, 28);
+      cyl(result, p.darkIron, .104, .104, .033, [0, 1.071, -.32], [Math.PI / 2, 0, 0], 16);
+      cyl(result, steel, .071, .079, .083, [0, 1.071, -.273], [Math.PI / 2, 0, 0], 12);
+      plate(result, steel, [[-.094, -.078], [-.078, -.094], [.078, -.094], [.094, -.078], [.094, .078], [.078, .094], [-.078, .094], [-.094, .078]], .091, [0, 1.071, -.204], undefined, .009);
+      for (const a of [.68, 2.28, 3.94, 5.41]) {
+        const x = Math.sin(a) * .135, y = 1.071 + Math.cos(a) * .135;
+        cyl(result, steel, .016, .017, .018, [x, y, -.329], [Math.PI / 2, 0, 0], 6);
+      }
+      for (const side of [-1, 1]) path(result, oxide, [[side * .05, .935, -.445], [side * .061, .901, -.445], [side * .087, .887, -.445]], .006, 4, 5);
+
+      // A separate, readable analogue gauge; only its needle needs articulation.
+      const gaugeX = .294, gaugeY = 1.222, gaugeZ = -.346;
+      cyl(result, brass, .136, .126, .075, [gaugeX, gaugeY, -.405], [Math.PI / 2, 0, 0], 32);
+      mesh(result, new THREE.CircleGeometry(.117, 32), dial, [gaugeX, gaugeY, -.362]);
+      torus(result, steel, .124, .01, [gaugeX, gaugeY, -.358], undefined, TAU, 32);
+      for (let i = 0; i <= 12; i++) {
+        const a = (-.72 + i * .12) * Math.PI, major = i % 3 === 0;
+        box(result, p.darkIron, [major ? .006 : .004, major ? .025 : .014, .002], [gaugeX + Math.sin(a) * .093, gaugeY + Math.cos(a) * .093, -.357], [0, 0, -a]);
+      }
+      path(result, brass, [[gaugeX, gaugeY - .129, -.405], [gaugeX, .991, -.4], [.386, .881, -.411], [.324, .533, -.459], [.324, .197, -.459]], .017, 7, 16);
+      for (const y of [.24, .6]) box(result, iron, [.085, .045, .052], [.315, y, -.451]);
+      const needle = group(result, gaugeX, gaugeY, gaugeZ); needle.name = 'dam-pressure-needle';
+      needle.userData.articulated = true;
+      // Zero points up; positive Z rotation sweeps counterclockwise toward low pressure.
+      needle.rotation.z = Math.PI * .66;
+      plate(needle, oxide, [[-.009, -.022], [.009, -.022], [.005, .059], [0, .092], [-.005, .059]], .004, [0, 0, 0], undefined, .001);
+      cyl(needle, brass, .014, .014, .011, [0, 0, .003], [Math.PI / 2, 0, 0], 12);
+      bake(needle);
+      break;
+    }
+    case 'maintenance_controls': {
+      const iron = mat(materials, 'damCastIron', '#414b49', .76, .59, { normalScale: new THREE.Vector2(.3, .3) });
+      const steel = mat(materials, 'damBoltSteel', '#9ca39d', .47, .79, { normalScale: new THREE.Vector2(.12, .12) });
+      const brass = mat(materials, 'damAgedBrass', '#92744b', .63, .7);
+      plate(result, iron, [[-.35, -.27], [.35, -.27], [.4, -.22], [.4, .22], [.35, .27], [-.35, .27], [-.4, .22], [-.4, -.22]], .075, [0, .046, -.155], [Math.PI / 2, 0, 0], .008);
+      loft(result, iron, [[.089, .225, .17], [.16, .19, .145], [.66, .135, .115], [.91, .23, .145], [1.015, .35, .16]], [0, 0, -.18], 0, 12);
+      for (const x of [-.307, .307]) for (const z of [-.346, .036]) {
+        cyl(result, p.darkIron, .038, .038, .01, [x, .098, z], undefined, 12);
+        cyl(result, steel, .026, .027, .027, [x, .117, z], undefined, 6);
+      }
+      plate(result, iron, [[-.495, .96], [-.55, 1.015], [-.55, 1.476], [-.495, 1.531], [.495, 1.531], [.55, 1.476], [.55, 1.015], [.495, .96]], .15, [0, 0, -.151], undefined, .015);
+      plate(result, p.darkIron, [[-.483, 1.014], [-.503, 1.034], [-.503, 1.452], [-.483, 1.472], [.483, 1.472], [.503, 1.452], [.503, 1.034], [.483, 1.014]], .013, [0, 0, -.058], undefined, .004);
+      const buttonColors = ['#316e98', '#d1ad37', '#80513b', '#ba4537'];
+      for (let i = 0; i < 4; i++) {
+        const x = -.357 + i * .238;
+        const paint = mat(materials, `maintenanceButton${i}`, buttonColors[i], .43, .08, { normalScale: new THREE.Vector2(.04, .04) });
+        cyl(result, p.darkIron, .086, .09, .025, [x, 1.266, -.039], [Math.PI / 2, 0, 0], 24);
+        torus(result, brass, .074, .009, [x, 1.266, -.021], undefined, TAU, 24);
+        cyl(result, steel, .061, .063, .032, [x, 1.266, -.009], [Math.PI / 2, 0, 0], 24);
+        cyl(result, paint, .055, .057, .026, [x, 1.266, .017], [Math.PI / 2, 0, 0], 24);
+        sphere(result, paint, [.055, .055, .009], [x, 1.266, .03], undefined, 16);
+      }
+      rivets(result, steel, [[-.458, 1.055, -.042], [.458, 1.055, -.042], [-.458, 1.43, -.042], [.458, 1.43, -.042]], .014);
+      for (const side of [-1, 1]) {
+        cyl(result, brass, .025, .025, .065, [side * .275, .964, -.153], undefined, 12);
+        path(result, p.darkIron, [[side * .275, .955, -.153], [side * .286, .72, -.215], [side * .14, .54, -.235], [side * .14, .104, -.235]], .015, 6, 14);
+      }
+      box(result, iron, [.385, .057, .065], [0, .351, -.234]);
+      break;
+    }
     case 'valve': {
       cyl(result, p.iron, .072, .072, .33, [0, .38, -.12], [Math.PI / 2, 0, 0]);
       torus(result, p.copper, .28, .029, [0, .38, .085], undefined, TAU, 36);
