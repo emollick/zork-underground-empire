@@ -1,0 +1,41 @@
+.touch-mode{--touch-controls-height:200px}
+.touch-controls{position:absolute;inset:0;z-index:5;pointer-events:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.touch-controls button{pointer-events:auto;touch-action:none;-webkit-tap-highlight-color:transparent;transition:background .12s,border-color .12s,color .12s}
+.touch-controls button:active{transform:none}
+.touch-movement{position:absolute;left:max(18px,env(safe-area-inset-left));bottom:calc(19px + env(safe-area-inset-bottom));width:124px;height:144px;text-align:center}
+.touch-stick{display:block;position:relative;width:124px;height:124px;border-radius:50%;border:1px solid #d7c69a52;background:radial-gradient(circle,#11221e33 30%,#0b191d80);box-shadow:inset 0 0 30px #09191470;padding:0}
+.touch-stick-ring{position:absolute;inset:17px;border:1px solid #d7c69a24;border-radius:50%;pointer-events:none}
+.touch-stick-knob{position:absolute;left:41px;top:41px;width:40px;height:40px;border:1px solid #e4d6af99;border-radius:50%;background:#b9b79c54;box-shadow:0 3px 10px #0004;pointer-events:none}
+.touch-stick.running{border-color:#e2bd71bf}
+.touch-stick.running .touch-stick-knob{background:#dcc08585;border-color:#f0d098}
+.touch-move-label{display:block;margin-top:8px;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#e3decbd9;text-shadow:0 2px 5px #000}
+.touch-actions{position:absolute;right:max(18px,env(safe-area-inset-right));bottom:calc(18px + env(safe-area-inset-bottom));display:grid;grid-template-columns:62px 66px;grid-template-rows:44px 60px 60px;gap:8px;align-items:center;justify-items:center}
+.touch-utilities{grid-area:1/1/2/3;display:flex;justify-content:flex-end;gap:10px;width:100%}
+.touch-button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:60px;height:60px;min-width:44px;min-height:44px;padding:6px 2px;border:1px solid #d2c19966;border-radius:50%;background:#0d211fd6;color:#ebe3ce;box-shadow:0 3px 12px #0003;text-shadow:0 1px 4px #0009}
+.touch-button svg{width:22px;height:22px}
+.touch-button>span{font-size:9px;line-height:1.15;letter-spacing:.01em;white-space:nowrap}
+.touch-button:disabled{opacity:.32}
+.touch-button.pressed{background:#d4c192d9;color:#14271e;border-color:#f3ddb0;text-shadow:none}
+.touch-guard{grid-area:2/1}.touch-attack{grid-area:2/2}.touch-dodge{grid-area:3/1}.touch-interact{grid-area:3/2}
+.touch-attack{color:#f2d3bc;border-color:#d29b7977}
+.touch-interact{width:66px;height:62px;border-radius:21px;background:#cbb887de;color:#172821;border-color:#e8cfa4;text-shadow:none}
+.touch-interact:not(:disabled){box-shadow:0 0 20px #e0bc5030}
+.touch-utilities .touch-button{width:49px;height:44px;border-radius:15px;gap:1px;background:#10251fbd}
+.touch-utilities .touch-button svg{width:19px;height:19px}
+.touch-lantern.lit{color:#f0cf88;border-color:#dcc88c99}
+.touch-actions.unarmed{grid-template-rows:44px 60px}
+.touch-actions.unarmed .touch-dodge{grid-area:2/1}.touch-actions.unarmed .touch-interact{grid-area:2/2}
+@media(orientation:landscape) and (max-height:600px){
+  .touch-mode{--touch-controls-height:160px}
+  .touch-movement{left:max(20px,env(safe-area-inset-left));bottom:calc(7px + env(safe-area-inset-bottom));width:110px;height:128px}
+  .touch-stick{width:110px;height:110px}.touch-stick-knob{left:36px;top:36px;width:36px;height:36px}.touch-stick-ring{inset:15px}
+  .touch-move-label{margin-top:5px;font-size:8px}
+  .touch-actions{right:max(18px,env(safe-area-inset-right));bottom:calc(8px + env(safe-area-inset-bottom));grid-template-columns:54px 60px;grid-template-rows:44px 50px 50px;gap:5px 7px}
+  .touch-button{width:50px;height:50px;padding:3px 1px;gap:1px}.touch-button svg{width:19px;height:19px}.touch-button>span{font-size:8px}
+  .touch-interact{width:58px;height:50px;border-radius:18px}.touch-utilities{gap:8px}.touch-utilities .touch-button{width:46px;height:44px}
+  .touch-actions.unarmed{grid-template-rows:44px 50px}
+}
+@media(max-width:350px){
+  .touch-movement{left:12px;width:108px;height:128px}.touch-stick{width:108px;height:108px}.touch-stick-knob{left:35px;top:35px;width:36px;height:36px}
+  .touch-actions{right:12px;grid-template-columns:56px 61px;gap:7px}.touch-button{width:56px;height:56px}.touch-interact{width:61px;height:58px}
+}

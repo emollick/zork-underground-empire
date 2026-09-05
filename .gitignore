@@ -1,0 +1,26 @@
+# Dependencies and generated builds
+node_modules/
+dist*/
+coverage/
+*.tsbuildinfo
+
+# Local Windows packages and bundled runtimes
+runtime/
+release/
+releases/
+*.zip
+
+# Local review artifacts and hosting state
+qa/
+screenshots/
+.netlify/
+playwright-report/
+test-results/
+
+# Local configuration, credentials, and logs
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+Thumbs.db

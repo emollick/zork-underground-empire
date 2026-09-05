@@ -1,0 +1,213 @@
+{
+  "source": "Poly Haven",
+  "license": "CC0-1.0",
+  "licenseUrl": "https://polyhaven.com/license",
+  "downloaded": "2026-09-04T17:09:10.473Z",
+  "assets": [
+    {
+      "name": "stone",
+      "id": "medieval_blocks_02",
+      "title": "Medieval Blocks 02",
+      "authors": [
+        "Rob Tuytel"
+      ],
+      "source": "https://polyhaven.com/a/medieval_blocks_02",
+      "resolution": "1k",
+      "normalConvention": "OpenGL",
+      "files": [
+        {
+          "filename": "stone-color.jpg",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/medieval_blocks_02/medieval_blocks_02_diff_1k.jpg",
+          "bytes": 698880,
+          "md5": "b758641035e82800e3139c41a21831c0",
+          "sha256": "91bc9f13dba69588efeaed86bd4490c4aae5d3381351a934e4d3fc5222c01a6c"
+        },
+        {
+          "filename": "stone-normal.jpg",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/medieval_blocks_02/medieval_blocks_02_nor_gl_1k.jpg",
+          "bytes": 1223483,
+          "md5": "3a4b7f7b812347c27eb58e0637003b97",
+          "sha256": "aa5793843285dccc2494ef61a0f76003aa57096366307647659d0db9236bed7f"
+        },
+        {
+          "filename": "stone-roughness.jpg",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/medieval_blocks_02/medieval_blocks_02_rough_1k.jpg",
+          "bytes": 210879,
+          "md5": "b1ea593060e4e59c69725f0b00897f96",
+          "sha256": "f8e16b7053c4e36b709bb414ea75f06129fda03d848da1c6c52564ebc0ed1c75"
+        }
+      ]
+    },
+    {
+      "name": "ground",
+      "id": "forest_floor",
+      "title": "Forest Floor",
+      "authors": [
+        "eye-candy.xyz"
+      ],
+      "source": "https://polyhaven.com/a/forest_floor",
+      "resolution": "1k",
+      "normalConvention": "OpenGL",
+      "files": [
+        {
+          "filename": "ground-color.jpg",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/forest_floor/forest_floor_diff_1k.jpg",
+          "bytes": 1329853,
+          "md5": "d67f308e4b8be6a65989e8dc76ec40fe",
+          "sha256": "f12e5adea1741f9eb7a528bfc621f8267885b9530b74c3a8afdb823899bdbf0b"
+        },
+        {
+          "filename": "ground-normal.jpg",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/forest_floor/forest_floor_nor_gl_1k.jpg",
+          "bytes": 1380104,
+          "md5": "7cb480d082527766acdf3b6c8cba50f4",
+          "sha256": "681f3de8c756c4d19bcda33039f953295498f38b1425ce9d56b37d6f97f6e518"
+        },
+        {
+          "filename": "ground-roughness.jpg",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/forest_floor/forest_floor_rough_1k.jpg",
+          "bytes": 736353,
+          "md5": "446092b42424c7bcf15994d651949546",
+          "sha256": "ece0b331f08c03f3edcd8ab6815b74a5ae20768beef64cd4f96a5b2fa26e116e"
+        }
+      ]
+    },
+    {
+      "name": "rock",
+      "id": "rock_boulder_cracked",
+      "title": "Rock Boulder Cracked",
+      "authors": [
+        "Dario Barresi",
+        "Dimitrios Savva"
+      ],
+      "source": "https://polyhaven.com/a/rock_boulder_cracked",
+      "resolution": "1k",
+      "normalConvention": "OpenGL",
+      "files": [
+        {
+          "filename": "rock-color.jpg",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_boulder_cracked/rock_boulder_cracked_diff_1k.jpg",
+          "bytes": 998110,
+          "md5": "2eee29ef1257ce79569e4be0b76cd1ad",
+          "sha256": "e88c9e50109c7f610bc380a00b9bdac5954c392bb02134dedeea3358da57276a"
+        },
+        {
+          "filename": "rock-normal.jpg",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_boulder_cracked/rock_boulder_cracked_nor_gl_1k.jpg",
+          "bytes": 1079683,
+          "md5": "1185717651f6fa2db0face12425d0a74",
+          "sha256": "022000a37cb91457de2e0c738baebbc1b0b8eb864ba99321d07c248d5c0741bc"
+        },
+        {
+          "filename": "rock-roughness.jpg",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_boulder_cracked/rock_boulder_cracked_rough_1k.jpg",
+          "bytes": 379850,
+          "md5": "8610432e3011c02abb70433f050cf651",
+          "sha256": "47e6c4b43c9cc5331d0392e3f74777f9a6712edda141dd148586b404c6c30e73"
+        }
+      ]
+    },
+    {
+      "name": "wood",
+      "id": "rough_wood",
+      "title": "Rough Wood",
+      "authors": [
+        "Rob Tuytel"
+      ],
+      "source": "https://polyhaven.com/a/rough_wood",
+      "resolution": "1k",
+      "normalConvention": "OpenGL",
+      "files": [
+        {
+          "filename": "wood-color.jpg",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rough_wood/rough_wood_diff_1k.jpg",
+          "bytes": 567074,
+          "md5": "92d4b3dd46bab95248f5a7680b7882e7",
+          "sha256": "abc46d8e3163d911220f4ec3a4043b68d2b0c6d750513f80871211acfefb2a98"
+        },
+        {
+          "filename": "wood-normal.jpg",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rough_wood/rough_wood_nor_gl_1k.jpg",
+          "bytes": 790334,
+          "md5": "1c9829c9023f74c74eaeba28e56e5144",
+          "sha256": "3d1c6f098b66d93e52071b41834dd14a424d8cd2f7c4130c62dc062acfa65011"
+        },
+        {
+          "filename": "wood-roughness.jpg",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rough_wood/rough_wood_rough_1k.jpg",
+          "bytes": 195056,
+          "md5": "ef62954e4ea0e9cd78757ce79e6eeb58",
+          "sha256": "4e9ea9962a7e8b69057937e6723c4b0134b949c1ee5cdb5f3687a54113027b09"
+        }
+      ]
+    },
+    {
+      "name": "moss",
+      "id": "mossy_cobblestone",
+      "title": "Mossy Cobblestone",
+      "authors": [
+        "Sơn Nguyễn"
+      ],
+      "source": "https://polyhaven.com/a/mossy_cobblestone",
+      "resolution": "1k",
+      "normalConvention": "OpenGL",
+      "files": [
+        {
+          "filename": "moss-color.jpg",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/mossy_cobblestone/mossy_cobblestone_diff_1k.jpg",
+          "bytes": 1089617,
+          "md5": "e400e051cac040e67d759dbd9a51ca3d",
+          "sha256": "105d6209ff99952ca316e814eebf06c1c3cb244da62184137a97e29aee74b7d7"
+        },
+        {
+          "filename": "moss-normal.jpg",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/mossy_cobblestone/mossy_cobblestone_nor_gl_1k.jpg",
+          "bytes": 980112,
+          "md5": "3bcd336a29c8eb273b8d54e8953eb5f3",
+          "sha256": "32a128c921cf0311798ebb6c6a766db900a10419233c87cc52f8d226b2aa4cc0"
+        },
+        {
+          "filename": "moss-roughness.jpg",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/mossy_cobblestone/mossy_cobblestone_rough_1k.jpg",
+          "bytes": 527666,
+          "md5": "82ded64e16b3bba9f2cbae34ab9e28b0",
+          "sha256": "d94a7085a300e9dda0725ca935e03fdb2f9f152c6f443ee02f695b3a64287cd6"
+        }
+      ]
+    },
+    {
+      "name": "bark",
+      "id": "bark_brown_02",
+      "title": "Bark Brown 02",
+      "authors": [
+        "Rob Tuytel"
+      ],
+      "source": "https://polyhaven.com/a/bark_brown_02",
+      "resolution": "1k",
+      "normalConvention": "OpenGL",
+      "files": [
+        {
+          "filename": "bark-color.jpg",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/bark_brown_02/bark_brown_02_diff_1k.jpg",
+          "bytes": 659592,
+          "md5": "6669cca520594bdca19f94084984ab72",
+          "sha256": "920fa0bed0c9d78c1d530e99795113afd532d7db746de440f4a85d7c83ed0f1a"
+        },
+        {
+          "filename": "bark-normal.jpg",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/bark_brown_02/bark_brown_02_nor_gl_1k.jpg",
+          "bytes": 1015623,
+          "md5": "1cad3fe0349a44df2d4d1c2859c79920",
+          "sha256": "0d5e691e8ad8bcd093a3587887fda2a6b4a948b5708a4f256f7919584c6eb857"
+        },
+        {
+          "filename": "bark-roughness.jpg",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/bark_brown_02/bark_brown_02_rough_1k.jpg",
+          "bytes": 337946,
+          "md5": "bbcde696e5b9418cdcb2abe638965417",
+          "sha256": "68125592de36e15bae7aa6db85c4d135aeb7e5653199ba226483a70f6d69837d"
+        }
+      ]
+    }
+  ]
+}

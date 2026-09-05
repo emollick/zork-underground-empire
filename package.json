@@ -1,0 +1,25 @@
+{
+  "name": "zork-the-great-underground-empire",
+  "version": "1.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "A first-person 3D adaptation of Zork I.",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5193",
+    "build": "tsc --noEmit && vite build",
+    "check": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "start": "node scripts/serve.mjs"
+  },
+  "dependencies": {
+    "@fontsource/cormorant-garamond": "5.3.0",
+    "@fontsource/dm-sans": "5.3.0",
+    "three": "0.180.0"
+  },
+  "devDependencies": {
+    "@types/three": "0.180.0",
+    "typescript": "5.9.3",
+    "vite": "8.2.2"
+  }
+}

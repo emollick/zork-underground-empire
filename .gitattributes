@@ -1,0 +1,19 @@
+# Keep source consistent across Windows and Linux checkouts.
+* text=auto eol=lf
+
+# Windows launch wrappers use native line endings.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Preserve asset bytes and the texture integrity manifest.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+
+# Upstream Node notices contain intentional indentation; retain them verbatim.
+licenses/NODE-LICENSE.txt whitespace=-space-before-tab
+public/licenses/NODE-LICENSE.txt whitespace=-space-before-tab
