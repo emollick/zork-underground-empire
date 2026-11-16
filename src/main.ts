@@ -9,6 +9,7 @@ import { GameUI } from './ui.ts';
 import { Soundscape } from './audio.ts';
 import { loadMaterials } from './materials.ts';
 import { TouchControls, prefersTouchControls } from './touch-controls.ts';
+import { GamepadInput } from './gamepad-input.ts';
 import { arrivalAt, houseDistrictAt, isHouseGrounds, sceneBounds, visitDistrict } from './scene-layout.ts';
 import { constrainRouteStep, routeFloorHeight } from './route-surfaces.ts';
 import { constrainHouseGorgeStep } from './exterior-geography.ts';
@@ -33,7 +34,7 @@ let playing = false, paused = true, transitioning = false, titleMode = true, dyi
 let pitch = 0, time = 0, previousTime = 0, saveTime = 0, uiTime = 0;
 let vy = 0, jump = 0, moving = 0, nextStep = 0, damageFlash = 0, darkTime = 0;
 let attackTime = 0, attackHit = false, attackCooldown = 0, blocking = false, blockStarted = -10;
-let guardHeld = false, mouseGuardHeld = false, touchGuardHeld = false;
+let guardHeld = false, mouseGuardHeld = false, touchGuardHeld = false, gamepadGuardHeld = false;
 let dodgeTime = 0, dodgeVector = new THREE.Vector2(), exhaustedUntil = 0;
 let enemyMode = 'idle', enemyTimer = 0, enemyMaxHp = 100, enemyStun = 0, combatEngaged = false;
 let enemyFlinch = 0, swingFacing = 0;
@@ -45,6 +46,8 @@ let mousePosition: { x: number; y: number } | null = null;
 let edgeLookX = 0, edgeLookY = 0, hoveredTime = 0;
 let actualFps = 60, lastRender = 0;
 const keys = new Set<string>(), forward = new THREE.Vector3(), motionVector = new THREE.Vector2();
+const gamepad = new GamepadInput();
+let gamepadMode = false, gamepadAvailable = true, menuDirection = '', menuRepeatAt = 0;
 const reviewHolds = new Map<string, number>();
 const hintProgress = new Map<string, number>();
 
@@ -72,7 +75,7 @@ function unlock() {
   if (document.pointerLockElement === ui.canvas) { intentionalUnlock = true; document.exitPointerLock(); }
 }
 function lock() {
-  if (!canLook() || touch?.enabled) return;
+  if (!canLook() || touch?.enabled || gamepadMode) return;
   mouseLookActive = true; resetMousePosition(); ui.canvas.classList.add('mouse-look-active');
   if (document.pointerLockElement === ui.canvas || capturePending) return;
   capturePending = true;
@@ -84,7 +87,7 @@ function lock() {
   // clicks without requiring a held button. Edge turning covers screen bounds.
 }
 function setPaused(value: boolean) {
-  paused = value; keys.clear(); if (QA) reviewHolds.clear(); blocking = false; guardHeld = false; mouseGuardHeld = false; touchGuardHeld = false; sound.setPaused(value);
+  paused = value; keys.clear(); if (QA) reviewHolds.clear(); blocking = false; guardHeld = false; mouseGuardHeld = false; touchGuardHeld = false; gamepadGuardHeld = false; sound.setPaused(value);
   touch?.setActive(!value && playing && !titleMode && !dying && !transitioning);
   if (value) { unlock(); save(); } else { ui.close(); ui.canvas.focus({ preventScroll: true }); lock(); }
 }
@@ -92,7 +95,7 @@ function resetMotion() {
   touch?.reset();
   pitch = 0; vy = 0; jump = 0; attackTime = 0; attackCooldown = 0; dodgeTime = 0; damageFlash = 0; darkTime = 0;
   enemyMode = 'idle'; enemyTimer = 0; enemyStun = 0; combatEngaged = false; moving = 0; target = {}; nextGrueBite = 0;
-  ui.prompt(''); ui.enemy('', 1, '', false); keys.clear(); blocking = false; guardHeld = false; mouseGuardHeld = false; touchGuardHeld = false; enemyAttackHit = false;
+  ui.prompt(''); ui.enemy('', 1, '', false); keys.clear(); blocking = false; guardHeld = false; mouseGuardHeld = false; touchGuardHeld = false; gamepadGuardHeld = false; enemyAttackHit = false;
 }
 function loadRoom(reveal = true) {
   resetMotion(); const room = ROOMS[state.room];
@@ -205,13 +208,14 @@ function tryAttack() {
 function tryDodge() {
   if (paused || titleMode || transitioning || dodgeTime > 0 || state.stamina < DODGE_COST) return;
   state.stamina -= DODGE_COST; dodgeTime = 0.36; exhaustedUntil = time + 0.5; blocking = false;
-  let x = (keys.has('KeyD') ? 1 : 0) - (keys.has('KeyA') ? 1 : 0) + (touch?.input.x ?? 0), z = (keys.has('KeyS') ? 1 : 0) - (keys.has('KeyW') ? 1 : 0) + (touch?.input.z ?? 0);
+  let x = (keys.has('KeyD') ? 1 : 0) - (keys.has('KeyA') ? 1 : 0) + (touch?.input.x ?? 0) + gamepad.move.x, z = (keys.has('KeyS') ? 1 : 0) - (keys.has('KeyW') ? 1 : 0) + (touch?.input.z ?? 0) + gamepad.move.y;
   if (!x && !z) z = 1;
   const yaw = view.camera.rotation.y; dodgeVector.set(x * Math.cos(yaw) + z * Math.sin(yaw), z * Math.cos(yaw) - x * Math.sin(yaw)).normalize(); sound.effect('dodge');
 }
 function beginBlock() { guardHeld = true; if (!paused && state.inventory.includes('sword') && !blocking && attackCooldown <= 0 && dodgeTime <= 0) { blocking = true; blockStarted = time; } }
-function releaseMouseGuard() { mouseGuardHeld = false; if (!keys.has('KeyR') && !touchGuardHeld) { blocking = false; guardHeld = false; } }
-function releaseTouchGuard() { touchGuardHeld = false; if (!keys.has('KeyR') && !mouseGuardHeld) { blocking = false; guardHeld = false; } }
+function releaseMouseGuard() { mouseGuardHeld = false; if (!keys.has('KeyR') && !touchGuardHeld && !gamepadGuardHeld) { blocking = false; guardHeld = false; } }
+function releaseTouchGuard() { touchGuardHeld = false; if (!keys.has('KeyR') && !mouseGuardHeld && !gamepadGuardHeld) { blocking = false; guardHeld = false; } }
+function releaseGamepadGuard() { gamepadGuardHeld = false; if (!keys.has('KeyR') && !mouseGuardHeld && !touchGuardHeld) { blocking = false; guardHeld = false; } }
 function toggleLantern() {
   if (paused || titleMode || transitioning || dying) return;
   if (state.inventory.includes('lantern')) { state.lantern = !state.lantern; sound.effect('lantern'); refresh(); save(); }
@@ -314,10 +318,10 @@ function updatePlayer(dt: number) {
     view.camera.rotation.x = pitch;
   }
   const yaw = view.camera.rotation.y;
-  let x = (keys.has('KeyD') ? 1 : 0) - (keys.has('KeyA') ? 1 : 0) + (touch?.input.x ?? 0), z = (keys.has('KeyS') ? 1 : 0) - (keys.has('KeyW') ? 1 : 0) + (touch?.input.z ?? 0);
+  let x = (keys.has('KeyD') ? 1 : 0) - (keys.has('KeyA') ? 1 : 0) + (touch?.input.x ?? 0) + gamepad.move.x, z = (keys.has('KeyS') ? 1 : 0) - (keys.has('KeyW') ? 1 : 0) + (touch?.input.z ?? 0) + gamepad.move.y;
   motionVector.set(x, z); if (motionVector.lengthSq() > 1) motionVector.normalize();
   x = motionVector.x; z = motionVector.y;
-  const running = keys.has('ShiftLeft') || keys.has('ShiftRight') || !!touch?.input.running;
+  const running = keys.has('ShiftLeft') || keys.has('ShiftRight') || !!touch?.input.running || !!gamepad.held[10];
   const speed = blocking ? 2.3 : running ? 7.3 : 4.6;
   const dx = (x * Math.cos(yaw) + z * Math.sin(yaw)) * speed * dt, dz = (z * Math.cos(yaw) - x * Math.sin(yaw)) * speed * dt;
   const dodgeStep = dodgeTime > 0 ? 10.5 * dt : 0;
@@ -339,6 +343,8 @@ function updatePlayer(dt: number) {
   if (keys.has('ArrowRight')) view.camera.rotation.y -= dt * 1.7;
   if (keys.has('ArrowUp')) pitch = Math.min(1.3, pitch + dt);
   if (keys.has('ArrowDown')) pitch = Math.max(-1.3, pitch - dt);
+  view.camera.rotation.y -= gamepad.look.x * 2.2 * state.settings.sensitivity * dt;
+  pitch = Math.max(-1.38, Math.min(1.38, pitch - gamepad.look.y * 1.7 * state.settings.sensitivity * dt));
   view.camera.rotation.x = pitch;
   state.yaw = view.camera.rotation.y; state.position = [pos.x, pos.z];
   if (isHouseGrounds(state.room)) enterDistrict(houseDistrictAt(state.position, state.room));
@@ -385,6 +391,7 @@ function canRestTravel() {
 touch = new TouchControls(ui.canvas, ui.root, {
   enabled: initialTouch,
   onMode: enabled => {
+    if (enabled) setGamepadMode(false);
     ui.setTouchMode(enabled); view?.setTouchMode(enabled);
     if (enabled) { unlock(); if (!saved && !playing && !qualityChosen) state.settings.quality = 'balanced'; }
   },
@@ -480,6 +487,7 @@ document.querySelector('#import-save')!.addEventListener('change', async event =
   input.value = '';
 });
 document.addEventListener('keydown', event => {
+  setGamepadMode(false);
   if (event.target instanceof Element && event.target.matches('input,select,textarea') && event.code !== 'Escape') return;
   if (event.ctrlKey || event.metaKey || event.altKey) return;
   if (dying && event.code !== 'Escape') return;
@@ -511,8 +519,8 @@ document.addEventListener('keydown', event => {
   else if (event.code === 'KeyL') toggleLantern();
   else if (event.code === 'Space' && jump === 0) vy = 5.3;
 });
-document.addEventListener('keyup', event => { keys.delete(event.code); if (event.code === 'KeyR' && !mouseGuardHeld && !touchGuardHeld) { blocking = false; guardHeld = false; } });
-window.addEventListener('blur', () => { keys.clear(); blocking = false; guardHeld = false; mouseGuardHeld = false; touchGuardHeld = false; touch?.reset(); resetMousePosition(); if (playing && !paused) { setPaused(true); ui.pause(ROOMS[state.room]); } });
+document.addEventListener('keyup', event => { keys.delete(event.code); if (event.code === 'KeyR' && !mouseGuardHeld && !touchGuardHeld && !gamepadGuardHeld) { blocking = false; guardHeld = false; } });
+window.addEventListener('blur', () => { keys.clear(); gamepad.reset(); blocking = false; guardHeld = false; mouseGuardHeld = false; touchGuardHeld = false; gamepadGuardHeld = false; touch?.reset(); resetMousePosition(); if (playing && !paused) { setPaused(true); ui.pause(ROOMS[state.room]); } });
 document.addEventListener('visibilitychange', () => { if (document.hidden && playing && !paused) { setPaused(true); ui.pause(ROOMS[state.room]); } });
 document.addEventListener('pointerlockchange', () => {
   capturePending = false; resetMousePosition();
@@ -528,6 +536,7 @@ document.addEventListener('pointerlockerror', () => { capturePending = false; })
 ui.canvas.addEventListener('contextmenu', event => event.preventDefault());
 ui.canvas.addEventListener('pointerdown', event => {
   if (event.pointerType !== 'mouse' || paused || titleMode || transitioning) return;
+  setGamepadMode(false);
   if (touch?.enabled) touch.setEnabled(false);
   if (event.button === 2) { mouseGuardHeld = true; beginBlock(); return; }
   if (event.button === 0) {
@@ -559,6 +568,74 @@ document.addEventListener('mousemove', event => {
 });
 window.addEventListener('beforeunload', () => save());
 window.addEventListener('pagehide', () => { touch?.reset(); save(); });
+
+function setGamepadMode(enabled: boolean) {
+  if (gamepadMode === enabled) return;
+  gamepadMode = enabled; ui.setGamepadMode(enabled);
+  if (enabled) { if (touch?.enabled) touch.setEnabled(false); unlock(); }
+}
+function navigateGamepadMenu(direction: string) {
+  const root = ui.currentPanel ? ui.overlay : ui.title;
+  const elements = [...root.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href], [tabindex="0"]')]
+    .filter(element => element.getClientRects().length > 0 && !element.closest('[inert]'));
+  const focused = document.activeElement;
+  if ((direction === 'left' || direction === 'right') && focused instanceof HTMLInputElement && focused.type === 'range') {
+    if (direction === 'right') focused.stepUp(); else focused.stepDown();
+    focused.dispatchEvent(new Event('input', { bubbles: true }));
+    return;
+  }
+  if ((direction === 'left' || direction === 'right') && focused instanceof HTMLSelectElement) {
+    focused.selectedIndex = Math.max(0, Math.min(focused.options.length - 1, focused.selectedIndex + (direction === 'right' ? 1 : -1)));
+    focused.dispatchEvent(new Event('input', { bubbles: true }));
+    return;
+  }
+  if (!elements.length) return;
+  const index = elements.indexOf(focused as HTMLElement), delta = direction === 'up' || direction === 'left' ? -1 : 1;
+  elements[index < 0 ? 0 : (index + delta + elements.length) % elements.length].focus();
+}
+function updateGamepad(now: number, dt: number) {
+  if (!document.hasFocus()) { gamepad.reset(); if (gamepadGuardHeld) releaseGamepadGuard(); return; }
+  let pads: (Gamepad | null)[] = [];
+  if (gamepadAvailable && navigator.getGamepads) {
+    try { pads = Array.from(navigator.getGamepads()); }
+    catch (error) {
+      if (!(error instanceof DOMException) || error.name !== 'SecurityError') throw error;
+      console.warn('Gamepad access is unavailable in this browsing context.', error);
+      gamepadAvailable = false;
+    }
+  }
+  gamepad.update(pads);
+  if (gamepad.active) setGamepadMode(true);
+  if (gamepadGuardHeld && (!gamepad.held[6] || paused || titleMode || transitioning || dying)) releaseGamepadGuard();
+  if (titleMode || paused || dying) {
+    const direction = gamepad.held[12] || gamepad.move.y < -0.5 ? 'up'
+      : gamepad.held[13] || gamepad.move.y > 0.5 ? 'down'
+      : gamepad.held[14] || gamepad.move.x < -0.5 ? 'left'
+      : gamepad.held[15] || gamepad.move.x > 0.5 ? 'right' : '';
+    if (direction && (direction !== menuDirection || now >= menuRepeatAt)) {
+      navigateGamepadMenu(direction); menuRepeatAt = now + (direction === menuDirection ? 140 : 350);
+    }
+    menuDirection = direction;
+    const map = ui.overlay.querySelector<HTMLElement>('.map-container');
+    if (map) { map.scrollLeft += gamepad.look.x * 450 * dt; map.scrollTop += gamepad.look.y * 450 * dt; }
+    if (gamepad.pressed[0] && document.activeElement instanceof HTMLElement) document.activeElement.click();
+    else if ((gamepad.pressed[1] || gamepad.pressed[9]) && ui.currentPanel && !dying) ui.onAction('close');
+    return;
+  }
+  menuDirection = '';
+  if (transitioning) return;
+  if (gamepad.pressed[9]) { ui.onAction('pause'); return; }
+  if (gamepad.pressed[4]) { showJournal('inventory'); return; }
+  if (gamepad.pressed[5]) { showJournal(); return; }
+  if (gamepad.pressed[12]) { showJournal('map'); return; }
+  if (gamepad.pressed[0]) interactTarget();
+  if (paused || transitioning) return;
+  if (gamepad.pressed[1] && jump === 0) vy = 5.3;
+  if (gamepad.pressed[2]) tryDodge();
+  if (gamepad.pressed[3]) toggleLantern();
+  if (gamepad.pressed[7]) tryAttack();
+  if (gamepad.held[6] && !gamepadGuardHeld) { gamepadGuardHeld = true; beginBlock(); }
+}
 
 function installReviewControls() {
   const panel = document.createElement('aside'); panel.id = 'review-controls';
@@ -603,9 +680,10 @@ function installReviewControls() {
 function frame(now: number) {
   requestAnimationFrame(frame);
   if (!view) return;
-  if (document.hidden) { previousTime = now; return; }
+  if (document.hidden) { gamepad.reset(); previousTime = now; return; }
   const rawDt = (now - previousTime) / 1000 || 0.016;
   const dt = Math.min(0.25, rawDt); previousTime = now; time += dt;
+  updateGamepad(now, dt);
   actualFps = actualFps * 0.9 + (1 / Math.max(0.001, rawDt)) * 0.1;
   if (!paused && !titleMode && !transitioning && !dying) {
     state.playTime += dt;
