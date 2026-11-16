@@ -27,6 +27,7 @@
 
 
 .spoken-action{margin:22px 0 12px}.spoken-action label{display:block;margin-bottom:9px;color:#c8bea7;font-size:13px}.spoken-action>div{display:flex;gap:12px}.spoken-action input{min-width:0;flex:1;border:1px solid #817254;background:#111b1b;color:#f0e5cf;font:500 19px "DM Sans",sans-serif;padding:12px 14px;border-radius:3px}.spoken-action input:focus{outline:2px solid #c5a76b;outline-offset:3px}.spoken-action .primary-button{padding:12px 20px;min-width:110px}
+.gamepad-mode :is(button,a,input,select,[tabindex="0"]):focus{outline:2px solid var(--gold);outline-offset:3px}
 
 .panel-notice{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);width:max-content;max-width:min(680px,88vw);padding:13px 20px;border:1px solid #cbb88745;background:#11231ff2;box-shadow:0 8px 36px #0007;text-align:center;pointer-events:none;z-index:1}
 .panel-notice strong{display:block;font-size:10px;letter-spacing:.12em;color:var(--gold);margin-bottom:5px}

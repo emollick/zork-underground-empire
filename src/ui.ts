@@ -9,6 +9,12 @@ export const touchHint = (value: string) => value
   .replace(/\bwith E\b/g, 'using Interact').replace(/\bthen E\b/g, 'then tap Interact')
   .replace(/\bDodge with Q\b/g, 'Tap Dodge').replace(/\bparry with R\b/g, 'hold Guard to parry')
   .replace(/\bStrike with F\b/g, 'Tap Strike');
+export const gamepadHint = (value: string) => value
+  .replace(/\bPress L\b/g, 'Press Y').replace(/\bpress L\b/g, 'press Y')
+  .replace(/\bPress E\b/g, 'Press A').replace(/\bpress E\b/g, 'press A')
+  .replace(/\bwith E\b/g, 'with A').replace(/\bthen E\b/g, 'then A')
+  .replace(/\bDodge with Q\b/g, 'Dodge with X').replace(/\bparry with R\b/g, 'parry with LT')
+  .replace(/\bStrike with F\b/g, 'Strike with RT');
 const icon = `<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 2 25 15 38 20 25 25 20 38 15 25 2 20 15 15Z" fill="none" stroke="currentColor"/><path d="m20 9 4 11-4 11-4-11Z" fill="currentColor"/></svg>`;
 
 export class GameUI {
@@ -33,6 +39,7 @@ export class GameUI {
   private lastLookMode = 'inactive';
   private lookHintUntil = 0;
   private touchMode = false;
+  private gamepadMode = false;
   private currentHint = '';
   constructor() {
     this.root = document.querySelector<HTMLDivElement>('#app')!;
@@ -93,23 +100,39 @@ export class GameUI {
   setTouchMode(enabled: boolean) {
     this.touchMode = enabled;
     document.documentElement.classList.toggle('touch-mode', enabled);
-    this.text('title-input-mode', enabled ? 'TOUCH CONTROLS' : 'KEYBOARD + MOUSE');
-    this.text('prompt-key', enabled ? 'Tap' : 'E');
-    this.text('combat-help', enabled ? 'Strike · Hold Guard · Dodge' : 'LMB / F Strike · RMB / R Parry · Q Dodge');
-    this.text('map-guidance', enabled ? 'Drag to explore the map.' : 'Scroll to explore the map.');
+    this.updateInputMode();
+  }
+  setGamepadMode(enabled: boolean) {
+    this.gamepadMode = enabled;
+    document.documentElement.classList.toggle('gamepad-mode', enabled);
+    this.updateInputMode();
+  }
+  private updateInputMode() {
+    const enabled = this.touchMode, gamepad = this.gamepadMode && !enabled;
+    this.text('title-input-mode', enabled ? 'TOUCH CONTROLS' : gamepad ? 'GAMEPAD' : 'KEYBOARD + MOUSE');
+    this.text('prompt-key', enabled ? 'Tap' : gamepad ? 'A' : 'E');
+    this.text('combat-help', enabled ? 'Strike · Hold Guard · Dodge' : gamepad ? 'RT Strike · LT Guard · X Dodge' : 'LMB / F Strike · RMB / R Parry · Q Dodge');
+    const journalKey = document.querySelector<HTMLElement>('.top-right [data-action="journal"] kbd');
+    const lampKey = document.querySelector<HTMLElement>('#lamp-status kbd');
+    const satchelKey = document.querySelector<HTMLElement>('.equipment [data-action="inventory"] kbd');
+    if (journalKey) journalKey.textContent = gamepad ? 'RB' : 'J';
+    if (lampKey) lampKey.textContent = gamepad ? 'Y' : 'L';
+    if (satchelKey) satchelKey.textContent = gamepad ? 'LB' : 'TAB';
+    this.text('map-guidance', enabled ? 'Drag to explore the map.' : gamepad ? 'Right stick to explore the map.' : 'Scroll to explore the map.');
     document.querySelector('#tutorial')!.innerHTML = enabled
       ? '<span>Left stick to move</span><span>Swipe right side to look</span>'
+      : gamepad ? '<span>Left stick Move</span><span>Right stick Look</span><span>A Interact</span><span>Menu Pause</span>'
       : '<span><kbd>W A S D</kbd> Move</span><span><kbd>SHIFT</kbd> Run</span><span><kbd>E</kbd> Interact</span><span><kbd>ESC</kbd> Pause</span>';
-    if (enabled) document.querySelector('#look-hint')!.classList.add('hidden');
+    if (enabled || gamepad) document.querySelector('#look-hint')!.classList.add('hidden');
     if (this.currentPanel === 'settings') this.overlay.querySelector('.controls-guide')!.innerHTML = this.controlsGuide();
     const hint = this.overlay.querySelector('.hint-text');
-    if (hint) hint.textContent = enabled ? touchHint(this.currentHint) : this.currentHint;
+    if (hint) hint.textContent = enabled ? touchHint(this.currentHint) : gamepad ? gamepadHint(this.currentHint) : this.currentHint;
   }
   private controlsGuide() {
     const controls = this.touchMode
       ? '<dt>Move / run</dt><dd>Left stick / push farther</dd><dt>Look around</dt><dd>Swipe the right side</dd><dt>Interact</dt><dd>Tap the prompt or action</dd><dt>Strike</dt><dd>Strike button</dd><dt>Block / parry</dt><dd>Hold Guard</dd><dt>Dodge</dt><dd>Dodge + stick direction</dd><dt>Jump / lantern</dt><dd>Jump / Lamp</dd><dt>Journal / map</dt><dd>Journal, then Map</dd><dt>Satchel / pause</dt><dd>Buttons at the top</dd>'
       : '<dt>Move / look</dt><dd>WASD / mouse</dd><dt>Run / jump</dt><dd>Shift / Space</dd><dt>Interact</dt><dd>E</dd><dt>Strike</dt><dd>Left click or F</dd><dt>Block / parry</dt><dd>Right click or R</dd><dt>Dodge</dt><dd>Q + a direction</dd><dt>Lantern</dt><dd>L</dd><dt>Journal / map</dt><dd>J / M</dd><dt>Satchel / pause</dt><dd>Tab / Esc</dd>';
-    return `<h3>The essentials</h3><dl>${controls}</dl><p>Parry just before a blow lands to stagger an enemy. Dodge through an attack, then strike during its recovery.</p><p>Tools are used where they belong. Explore, examine, and let the journal give you a nudge if you need one.</p><p class="muted">${this.touchMode ? 'Drag farther from the center of the stick to run. Lift your thumb to stop. Swipe anywhere on the right side of the world to turn; swiping never attacks. Combat and lamp controls appear when you have the equipment.' : 'Mouse look stays on while you play. If the pointer reaches the edge of the view, keep it there to continue turning. Arrow keys also turn the camera. Esc pauses and releases the mouse.'}</p>`;
+    return `<h3>The essentials</h3><dl>${controls}</dl><h3>Gamepad (standard mapping)</h3><dl><dt>Move / look</dt><dd>Left / right stick</dd><dt>Run / jump</dt><dd>Hold left stick / B</dd><dt>Interact / dodge / lantern</dt><dd>A / X / Y</dd><dt>Strike / guard</dt><dd>RT / hold LT</dd><dt>Satchel / journal / map</dt><dd>LB / RB / D-pad up</dd><dt>Pause</dt><dd>Menu / Start</dd></dl><p>In menus, use the D-pad or left stick to navigate, A to select, and B to go back. Use left/right to adjust settings and the right stick to scroll the map. Spoken answers require a keyboard.</p><p>Parry just before a blow lands to stagger an enemy. Dodge through an attack, then strike during its recovery.</p><p>Tools are used where they belong. Explore, examine, and let the journal give you a nudge if you need one.</p><p class="muted">${this.touchMode ? 'Drag farther from the center of the stick to run. Lift your thumb to stop. Swipe anywhere on the right side of the world to turn; swiping never attacks. Combat and lamp controls appear when you have the equipment.' : 'Mouse look stays on while you play. If the pointer reaches the edge of the view, keep it there to continue turning. Arrow keys also turn the camera. Esc pauses and releases the mouse.'}</p>`;
   }
   loading(progress: number, label = 'Preparing your expedition') { (document.querySelector('#loading-bar') as HTMLElement).style.width = `${progress * 100}%`; this.text('loading-label', label); }
   ready(hasSave: boolean) { document.querySelector('#loading')!.classList.add('hidden'); this.showTitle(hasSave); }
@@ -206,7 +229,7 @@ export class GameUI {
     let body = '';
     if (tab === 'journal') {
       const hintLabel = hintLevel >= 3 ? 'Repeat the solution' : hintLevel === 2 ? 'Show the solution' : hintLevel === 1 ? 'A clearer hint' : 'A nudge, please';
-      body = `<div class="journal-content"><aside class="current-lead"><span class="eyebrow">YOUR OBSERVATIONS</span><h3>${escapeHtml(objective.title)}</h3><p>${escapeHtml(objective.text)}</p><button class="text-button hint-button" data-action="hint">${hintLabel} <span>↗</span></button>${hintText ? `<p class="hint-text">${escapeHtml(this.touchMode ? touchHint(hintText) : hintText)}</p>` : ''}<div class="journal-stats"><span>${state.visited.length} places discovered</span><span>${Math.floor(state.playTime / 60)} minutes in the empire</span></div></aside><div class="journal-entries">${[...state.journal].reverse().map(e => `<article><span>◇</span><div><h3>${escapeHtml(e.title)}</h3><p>${escapeHtml(compassJournalText(e))}</p></div></article>`).join('') || '<p>Your observations will be recorded here as you explore.</p>'}</div></div>`;
+      body = `<div class="journal-content"><aside class="current-lead"><span class="eyebrow">YOUR OBSERVATIONS</span><h3>${escapeHtml(objective.title)}</h3><p>${escapeHtml(objective.text)}</p><button class="text-button hint-button" data-action="hint">${hintLabel} <span>↗</span></button>${hintText ? `<p class="hint-text">${escapeHtml(this.touchMode ? touchHint(hintText) : this.gamepadMode ? gamepadHint(hintText) : hintText)}</p>` : ''}<div class="journal-stats"><span>${state.visited.length} places discovered</span><span>${Math.floor(state.playTime / 60)} minutes in the empire</span></div></aside><div class="journal-entries">${[...state.journal].reverse().map(e => `<article><span>◇</span><div><h3>${escapeHtml(e.title)}</h3><p>${escapeHtml(compassJournalText(e))}</p></div></article>`).join('') || '<p>Your observations will be recorded here as you explore.</p>'}</div></div>`;
     } else if (tab === 'map') {
       const visited = Object.values(rooms).filter(r => state.visited.includes(r.id));
       const nextIds = new Set(visited.flatMap(r => r.exits.filter(e => !e.requires || state.flags[e.requires]).map(e => e.to)));
@@ -226,7 +249,7 @@ export class GameUI {
         return `<g class="${r.id === state.room ? 'map-current' : known ? '' : 'map-unknown'}"><circle cx="${x}" cy="${y}" r="${r.id === state.room ? 8 : 5}"/><text x="${x}" y="${y + 30}" text-anchor="middle">${lines.map((line, i) => `<tspan x="${x}" dy="${i ? 24 : 0}">${escapeHtml(line)}</tspan>`).join('')}</text></g>`;
       }).join('');
       const camps = ['living_room', 'round_room', 'temple', 'dam'].filter(id => state.flags[`rest_${id}`]);
-      body = `<div class="map-container" tabindex="0" role="region" aria-label="Scrollable expedition map"><svg class="world-map" viewBox="0 0 ${mapWidth} ${mapHeight}" style="min-width:${mapWidth}px;height:${mapHeight}px;max-height:none" role="img" aria-label="Map of the places you have discovered"><g class="map-lines">${lines}</g>${nodes}</svg></div><div class="map-footer"><p><span id="map-guidance">${this.touchMode ? 'Drag to explore the map.' : 'Scroll to explore the map.'}</span> <span class="gold">◇</span> Your position</p><div><span>RETURN TO A SAFE PLACE</span>${camps.map(id => `<button data-action="camp:${id}">${escapeHtml(rooms[id].name)}</button>`).join('') || '<small>Discover a rest site to unlock travel.</small>'}</div></div>`;
+      body = `<div class="map-container" tabindex="0" role="region" aria-label="Scrollable expedition map"><svg class="world-map" viewBox="0 0 ${mapWidth} ${mapHeight}" style="min-width:${mapWidth}px;height:${mapHeight}px;max-height:none" role="img" aria-label="Map of the places you have discovered"><g class="map-lines">${lines}</g>${nodes}</svg></div><div class="map-footer"><p><span id="map-guidance">${this.touchMode ? 'Drag to explore the map.' : this.gamepadMode ? 'Right stick to explore the map.' : 'Scroll to explore the map.'}</span> <span class="gold">◇</span> Your position</p><div><span>RETURN TO A SAFE PLACE</span>${camps.map(id => `<button data-action="camp:${id}">${escapeHtml(rooms[id].name)}</button>`).join('') || '<small>Discover a rest site to unlock travel.</small>'}</div></div>`;
     } else {
       const owned = state.inventory.filter(id => items[id]); const selected = items[selectedItem] ?? items[owned[0]];
       body = `<div class="satchel-content"><div class="item-list">${owned.map(id => `<button data-action="inspect:${escapeHtml(id)}" class="${selected?.id === id ? 'selected' : ''}"><span class="item-glyph">${items[id].treasure ? '◇' : '·'}</span><span>${escapeHtml(items[id].name)}</span>${items[id].treasure ? '<small>TREASURE</small>' : ''}</button>`).join('') || '<p>Your satchel is empty. The mailbox seems like a reasonable place to begin.</p>'}</div><div class="item-description">${selected ? `<span class="eyebrow">${selected.treasure ? 'TREASURE OF THE EMPIRE' : 'IN YOUR SATCHEL'}</span><div class="item-seal">${selected.treasure ? '◇' : icon}</div><h3>${escapeHtml(selected.name)}</h3><p>${escapeHtml(selected.description)}</p><small>Examine a place or creature to choose an item to use there.</small>` : '<span class="empty-satchel">An adventure begins with empty pockets.</span>'}</div></div>`;
@@ -278,7 +301,7 @@ export class GameUI {
       this.lastLookMode = lookMode; this.lookHintUntil = performance.now() + 7000;
       this.text('look-hint', lookMode === 'free' ? 'Move the mouse to look · Keep it near an edge to turn further · Esc to pause' : 'Click to look around · Esc to pause');
     }
-    document.querySelector('#look-hint')!.classList.toggle('hidden', this.touchMode || lookMode === 'touch' || lookMode === 'captured' || !active || fighting || lookMode === 'free' && performance.now() > this.lookHintUntil);
+    document.querySelector('#look-hint')!.classList.toggle('hidden', this.touchMode || this.gamepadMode || lookMode === 'touch' || lookMode === 'captured' || !active || fighting || lookMode === 'free' && performance.now() > this.lookHintUntil);
     const degrees = compassBearing(state.room, state.yaw);
     const marks = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
     const track = document.querySelector('#compass-track')!;

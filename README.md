@@ -48,6 +48,20 @@ Mouse look works without holding a button. Press **Esc** to release the pointer,
 
 On a phone or tablet, touch controls appear automatically. Drag the left stick to move, push farther to run, and swipe the world on the right to look. You can move and look together. Tap the prompt to interact; use **Strike**, **Dodge**, **Jump**, **Lamp**, and hold **Guard**. Equipment buttons appear when you have the items. Journal, map, satchel, and pause are available through the on-screen menus. Tap a spoken-answer field to open your keyboard. Portrait and landscape layouts are supported.
 
+Standard-mapped gamepads are supported in browsers with the Gamepad API. Press a button or move a stick to activate controller prompts. Labels below use the Xbox layout; equivalent buttons on other standard-mapped controllers work too.
+
+| Action | Gamepad |
+| --- | --- |
+| Move / look | Left / right stick |
+| Run / jump | Hold left stick button / B |
+| Examine, collect, use, travel | A |
+| Strike / guard | Right trigger / hold left trigger |
+| Dodge / lantern | X (with a movement direction) / Y |
+| Satchel / journal / map | Left bumper / right bumper / D-pad up |
+| Pause | Menu / Start |
+
+In menus, use the D-pad or left stick to navigate, A to select, and B to go back. Left/right adjusts focused settings, and the right stick scrolls the map. Spoken-answer puzzles still require a keyboard.
+
 ## Playing and saving
 
 The journal records discoveries and offers three optional hint levels, from a nudge to an explicit solution. Rest at a hearth or safe camp to recover and unlock return travel. Choose **Explorer**, **Adventurer**, or **Veteran** in Settings; graphics, sensitivity, sound, and camera motion are adjustable too.
